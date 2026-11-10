@@ -520,6 +520,7 @@ class VentanaConfiguracion(tk.Toplevel):
         self.var_tamano = tk.IntVar(value=cfg["tamano_circulo"])
         self.var_una_orden = tk.BooleanVar(value=cfg.get("una_orden", True))
         self.var_estricta = tk.BooleanVar(value=cfg.get("activacion_estricta", True))
+        self.var_ganancia = tk.BooleanVar(value=cfg.get("ganancia_auto", True))
         self.var_atento = tk.IntVar(value=cfg.get("segundos_atento", 8))
         self.var_activacion = tk.StringVar(value=", ".join(cfg["activacion"]))
         voz_guardada = cfg.get("voz")
@@ -536,6 +537,8 @@ class VentanaConfiguracion(tk.Toplevel):
         ttk.Checkbutton(marco, text="Iniciar el asistente al encender Windows",
                         variable=self.var_inicio).pack(anchor="w", pady=3)
 
+        ttk.Checkbutton(marco, text="Subir el volumen del micrófono automáticamente (para hablarle desde lejos)",
+                        variable=self.var_ganancia).pack(anchor="w", pady=3)
         ttk.Checkbutton(marco, text="Activación estricta: solo despertarse si oye bien su nombre "
                                     "(evita que responda a otras palabras)",
                         variable=self.var_estricta).pack(anchor="w", pady=3)
@@ -605,6 +608,7 @@ class VentanaConfiguracion(tk.Toplevel):
         nuevo["tamano_circulo"] = int(self.var_tamano.get())
         nuevo["una_orden"] = self.var_una_orden.get()
         nuevo["activacion_estricta"] = self.var_estricta.get()
+        nuevo["ganancia_auto"] = self.var_ganancia.get()
         try:
             nuevo["segundos_atento"] = max(3, min(30, int(self.var_atento.get())))
         except (tk.TclError, ValueError):

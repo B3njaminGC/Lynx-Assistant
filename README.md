@@ -46,6 +46,7 @@ y desde ahí los editás en la pestaña **Comandos**.
 | Abrir página web | Abre un link en tu navegador |
 | Apagar la PC | Apaga la computadora (siempre pide confirmación si lo marcás) |
 | Cambiar salida de audio | Cambia el dispositivo por el que habla el asistente |
+| Música y volumen | Pista siguiente/anterior, pausa, subir/bajar volumen, silenciar (funciona con Spotify, YouTube y casi cualquier reproductor) |
 
 ## Voz de personaje (opcional)
 

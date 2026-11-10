@@ -38,7 +38,7 @@ PREFIJO_NATURAL = "Natural: "
 RATE = 16000
 SIN_VENTANA = 0x08000000 if sys.platform == "win32" else 0  # evita que parpadee una consola
 
-CONFIANZA_MINIMA = 0.7  # confianza (0 a 1) que tiene que tener el reconocedor al oír su nombre
+CONFIANZA_MINIMA = 0.55  # confianza (0 a 1) que tiene que tener el reconocedor al oír su nombre
 PALABRAS_DORMIR = ["gracias", "chau", "chao", "adios"]
 PALABRAS_SI = ["si", "dale", "confirmo"]
 PALABRAS_NO = ["no", "cancela", "cancelar"]
@@ -82,6 +82,7 @@ CONFIG_BASE = {
     "voz_velocidad": 170,
     "iniciar_con_windows": False,
     "segundos_atento": 8,           # tras decir su nombre, cuánto espera una orden antes de volver a dormirse
+    "ganancia_auto": True,          # sube solo el volumen del micrófono cuando hablás lejos o bajito
     "activacion_estricta": True,    # el nombre solo vale si el modelo lo oye claro (evita activarse con otras palabras)
     "una_orden": True,              # True: después de cumplir una orden vuelve a dormirse (hay que llamarlo de nuevo)
     "salida_audio": None,           # None = salida predeterminada de Windows; o parte del nombre del dispositivo
@@ -99,6 +100,17 @@ RESPUESTAS_POR_DEFECTO = {
     "cerrar_varios": "Listo, cerré los programas.",
     "apagar": "Apagando la PC.",
     "cambiar_salida": "Listo, ahora hablo por acá.",
+    "tecla_multimedia": "Listo.",
+}
+
+# Teclas multimedia de Windows: (código de tecla, cuántas veces se aprieta).
+TECLAS_MULTIMEDIA = {
+    "siguiente": (0xB0, 1),
+    "anterior": (0xB1, 1),
+    "pausa": (0xB3, 1),
+    "silenciar": (0xAD, 1),
+    "subir_volumen": (0xAF, 5),   # cada toque sube el 2 %
+    "bajar_volumen": (0xAE, 5),
 }
 
 
@@ -531,6 +543,11 @@ class Motor(threading.Thread):
         self.despierto = False
         self.despierto_desde = 0.0   # cuándo empezó a esperar la orden (monotonic)
         self.reco_libre = None       # reconocedor sin gramática: oye todo y solo se activa con el nombre
+        self.reco_escucha = None     # igual, pero mientras espera una orden: para anotar qué oyó cuando no entiende
+        self._ultimo_oido = ""
+        self._avisado = False        # ya dijo "no entendí" en esta activación
+        self._pico_ref = 0.0         # volumen de referencia para la ganancia automática
+        self._ganancia = 1.0
         self.nivel = 0.0
         self.avisos = []
         self.listo = False
@@ -557,10 +574,30 @@ class Motor(threading.Thread):
         muestras.frombytes(datos[: len(datos) - (len(datos) % 2)])
         if muestras:
             pico = max(max(muestras), -min(muestras))
-            self.nivel = min(1.0, pico / 12000)
+            self.nivel = min(1.0, pico / max(1.0, self._ganancia) / 12000)
+
+    def _con_ganancia(self, datos):
+        """
+        Ganancia automática: si hablás lejos o bajito sube el volumen (hasta 8 veces) para que el
+        reconocedor te oiga mejor; si hablás fuerte, no toca nada.
+        """
+        if not self.config.get("ganancia_auto", True):
+            self._ganancia = 1.0
+            return datos
+        muestras = array("h")
+        muestras.frombytes(datos[: len(datos) - (len(datos) % 2)])
+        if not muestras:
+            return datos
+        pico = max(max(muestras), -min(muestras))
+        self._pico_ref = max(float(pico), self._pico_ref * 0.995)  # baja despacio: se acuerda de la voz
+        self._ganancia = max(1.0, min(8.0, 12000.0 / max(self._pico_ref, 1.0)))
+        if self._ganancia < 1.05:
+            return datos
+        g = self._ganancia
+        return array("h", (max(-32768, min(32767, int(x * g))) for x in muestras)).tobytes()
 
     def _callback(self, datos, frames, tiempo, estado):
-        self.cola_audio.put(bytes(datos))
+        self.cola_audio.put(self._con_ganancia(bytes(datos)))
 
     def _vaciar_audio(self):
         while not self.cola_audio.empty():
@@ -810,11 +847,24 @@ class Motor(threading.Thread):
             if self.callback_config is not None:
                 self.callback_config("salida_audio", valor or None)
             self.hablar(respuesta)  # ya sale por el dispositivo nuevo
+        elif tipo == "tecla_multimedia":
+            self._tecla_multimedia(valor)
+            self.hablar(respuesta)
         elif tipo == "apagar":
             self.hablar(respuesta)
             self._correr(["shutdown", "/s", "/t", "0"])
         else:
             self.hablar("Todavía no sé hacer esa acción.")
+
+    def _tecla_multimedia(self, nombre):
+        codigo, veces = TECLAS_MULTIMEDIA.get(nombre, (None, 0))
+        if codigo is None:
+            raise ValueError(f"tecla multimedia desconocida: {nombre}")
+        import ctypes
+        for _ in range(veces):
+            ctypes.windll.user32.keybd_event(codigo, 0, 0, 0)   # apretar
+            ctypes.windll.user32.keybd_event(codigo, 0, 2, 0)   # soltar
+            time.sleep(0.02)
 
     def _procesar(self, texto, reco_confirmar):
         cmd = buscar_comando(texto, self.comandos)
@@ -873,6 +923,7 @@ class Motor(threading.Thread):
             from vosk import KaldiRecognizer
             self.reco_libre = KaldiRecognizer(modelo, RATE)
             self.reco_libre.SetWords(True)
+            self.reco_escucha = KaldiRecognizer(modelo, RATE)
         except Exception as error:
             self.reco_libre = None
             log("[aviso] no pude crear el reconocedor libre; la activación será menos estricta:", error)
@@ -914,6 +965,13 @@ class Motor(threading.Thread):
             self.reco_libre.Reset()
         self.estado = "dormido"
         self._vaciar_cola()
+
+    def _empezar_a_escuchar_orden(self):
+        self.reco_comandos.Reset()
+        if self.reco_escucha is not None:
+            self.reco_escucha.Reset()
+        self._ultimo_oido = ""
+        self._avisado = False
 
     def _confianza_del_nombre(self, resultado, activacion):
         """Mejor confianza (0 a 1) con la que el reconocedor oyó su nombre; None si no lo oyó."""
@@ -971,6 +1029,8 @@ class Motor(threading.Thread):
             reconocedor = self.reco_comandos
         else:
             reconocedor = self.reco_libre if libre else reco_dormido
+        if self.despierto and self.reco_escucha is not None and self.reco_escucha.AcceptWaveform(datos):
+            self._ultimo_oido = limpiar(json.loads(self.reco_escucha.Result()).get("text", ""))
         if not reconocedor.AcceptWaveform(datos):
             return
         resultado = json.loads(reconocedor.Result())
@@ -990,14 +1050,23 @@ class Motor(threading.Thread):
                 f"{self._confianza_del_nombre(resultado, activacion) or 0:.2f})")
             self.despierto = True
             self.estado = "escuchando"
-            self.reco_comandos.Reset()
+            self._empezar_a_escuchar_orden()
             self.hablar("Te escucho.")
             self._vaciar_cola()
             self.despierto_desde = time.monotonic()
             return
         texto = limpiar(crudo)
         if not texto:
-            log("[oído] (no reconocido)")
+            if self.despierto:
+                # Algo se dijo pero no es ninguna de las frases: se anota qué oyó para poder crearla.
+                log("[no entendí] oyó:", repr(self._ultimo_oido or "(nada claro)"))
+                if not self._avisado:
+                    self._avisado = True
+                    self.hablar("No entendí ese comando.")
+                    self._vaciar_cola()
+                    self.despierto_desde = time.monotonic()
+            else:
+                log("[oído] (no reconocido)")
             return
         log("[oído]", texto)
         palabras = set(texto.split())
@@ -1006,7 +1075,7 @@ class Motor(threading.Thread):
             if palabras & activacion:
                 self.despierto = True
                 self.estado = "escuchando"
-                self.reco_comandos.Reset()
+                self._empezar_a_escuchar_orden()
                 self.hablar("Te escucho.")
                 self._vaciar_cola()  # lo que el micrófono oyó mientras hablaba (su propia voz)
                 self.despierto_desde = time.monotonic()

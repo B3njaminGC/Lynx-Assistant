@@ -16,7 +16,18 @@ TIPOS = {
     "cerrar_varios": "Cerrar varios programas",
     "apagar": "Apagar la PC",
     "cambiar_salida": "Cambiar salida de audio",
+    "tecla_multimedia": "Música y volumen (pista, pausa, volumen)",
 }
+# Opciones de la acción de música y volumen: nombre que se muestra -> clave que guarda el comando.
+MULTIMEDIA = {
+    "Pista siguiente": "siguiente",
+    "Pista anterior": "anterior",
+    "Pausa / reproducir": "pausa",
+    "Subir el volumen": "subir_volumen",
+    "Bajar el volumen": "bajar_volumen",
+    "Silenciar / activar sonido": "silenciar",
+}
+MULTIMEDIA_POR_CLAVE = {clave: nombre for nombre, clave in MULTIMEDIA.items()}
 TIPO_POR_NOMBRE = {nombre: clave for clave, nombre in TIPOS.items()}
 
 # Etiqueta y ayuda del campo "valor" según el tipo de acción.
@@ -27,6 +38,7 @@ VALOR_AYUDA = {
     "cerrar_varios": "Programas a cerrar, uno por línea (ej: brave.exe):",
     "apagar": "",
     "cambiar_salida": "Nombre (o parte) del dispositivo de sonido (ej: Speaker (Realtek):",
+    "tecla_multimedia": "Qué hacer (funciona con Spotify, YouTube y casi cualquier reproductor):",
 }
 CONFIRMAR_POR_DEFECTO = {"cerrar_programa", "cerrar_varios", "apagar"}
 
@@ -92,6 +104,8 @@ class Dialogo(tk.Toplevel):
         self.ent_valor = ttk.Entry(self.fila_valor, textvariable=self.var_valor, width=40)
         self.btn_buscar = ttk.Button(self.fila_valor, text="Buscar...", command=self.buscar_programa)
         self.txt_valor = tk.Text(self.fila_valor, width=38, height=5)
+        self.combo_multimedia = ttk.Combobox(self.fila_valor, values=list(MULTIMEDIA), state="readonly",
+                                             width=38)
 
         ttk.Label(marco, text="Qué dice el asistente al hacerlo (opcional):").grid(sticky="w")
         self.var_respuesta = tk.StringVar(value=cmd.get("respuesta", "") if cmd else "")
@@ -111,6 +125,8 @@ class Dialogo(tk.Toplevel):
             valor = cmd.get("valor", "")
             if isinstance(valor, list):
                 self.txt_valor.insert("1.0", "\n".join(valor))
+            elif cmd["tipo"] == "tecla_multimedia":
+                self.combo_multimedia.set(MULTIMEDIA_POR_CLAVE.get(valor, ""))
             else:
                 self.var_valor.set(valor)
 
@@ -124,10 +140,14 @@ class Dialogo(tk.Toplevel):
     def cambio_tipo(self, es_cambio_del_usuario):
         tipo = self.tipo_actual()
         self.lbl_valor.config(text=VALOR_AYUDA[tipo])
-        for w in (self.ent_valor, self.btn_buscar, self.txt_valor):
+        for w in (self.ent_valor, self.btn_buscar, self.txt_valor, self.combo_multimedia):
             w.grid_forget()
         if tipo == "cerrar_varios":
             self.txt_valor.grid(row=0, column=0)
+        elif tipo == "tecla_multimedia":
+            self.combo_multimedia.grid(row=0, column=0, sticky="we")
+            if not self.combo_multimedia.get():
+                self.combo_multimedia.set(next(iter(MULTIMEDIA)))
         elif tipo != "apagar":
             self.ent_valor.grid(row=0, column=0, sticky="we")
             if tipo == "abrir_programa":
@@ -151,6 +171,8 @@ class Dialogo(tk.Toplevel):
 
         if tipo == "apagar":
             valor = ""
+        elif tipo == "tecla_multimedia":
+            valor = MULTIMEDIA.get(self.combo_multimedia.get(), "")
         elif tipo == "cerrar_varios":
             lineas = [l.strip() for l in self.txt_valor.get("1.0", "end").splitlines() if l.strip()]
             valor = [l if l.lower().endswith(".exe") else l + ".exe" for l in lineas]
