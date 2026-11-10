@@ -518,6 +518,8 @@ class VentanaConfiguracion(tk.Toplevel):
         self.var_voz = tk.BooleanVar(value=cfg["responder_con_voz"])
         self.var_inicio = tk.BooleanVar(value=cfg["iniciar_con_windows"])
         self.var_tamano = tk.IntVar(value=cfg["tamano_circulo"])
+        self.var_una_orden = tk.BooleanVar(value=cfg.get("una_orden", True))
+        self.var_atento = tk.IntVar(value=cfg.get("segundos_atento", 8))
         self.var_activacion = tk.StringVar(value=", ".join(cfg["activacion"]))
         voz_guardada = cfg.get("voz")
         if voz_guardada and voz_guardada.startswith(nucleo.PREFIJO_NATURAL) and not cfg.get("voces_naturales"):
@@ -532,6 +534,15 @@ class VentanaConfiguracion(tk.Toplevel):
                         ).pack(anchor="w", pady=3)
         ttk.Checkbutton(marco, text="Iniciar el asistente al encender Windows",
                         variable=self.var_inicio).pack(anchor="w", pady=3)
+
+        ttk.Checkbutton(marco, text="Dormirse después de cada orden (hay que decir su nombre de nuevo)",
+                        variable=self.var_una_orden).pack(anchor="w", pady=3)
+        fila_atento = ttk.Frame(marco)
+        fila_atento.pack(anchor="w", pady=3)
+        ttk.Label(fila_atento, text="Segundos que espera una orden después de decir su nombre:"
+                  ).pack(side="left", padx=(0, 8))
+        ttk.Spinbox(fila_atento, from_=3, to=30, width=4, textvariable=self.var_atento
+                    ).pack(side="left")
 
         ttk.Label(marco, text="Tamaño del círculo:").pack(anchor="w", pady=(14, 0))
         tk.Scale(marco, from_=40, to=120, orient="horizontal", length=260,
@@ -588,6 +599,11 @@ class VentanaConfiguracion(tk.Toplevel):
         nuevo["responder_con_voz"] = self.var_voz.get()
         nuevo["iniciar_con_windows"] = self.var_inicio.get()
         nuevo["tamano_circulo"] = int(self.var_tamano.get())
+        nuevo["una_orden"] = self.var_una_orden.get()
+        try:
+            nuevo["segundos_atento"] = max(3, min(30, int(self.var_atento.get())))
+        except (tk.TclError, ValueError):
+            nuevo["segundos_atento"] = 8
         nuevo["activacion"] = variantes
         voz = self.var_voz_nombre.get()
         nuevo["voz"] = None if voz == VOZ_PREDETERMINADA else voz

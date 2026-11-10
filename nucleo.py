@@ -80,6 +80,8 @@ CONFIG_BASE = {
     "voz": None,                    # None = voz predeterminada de Windows; o el nombre de la voz
     "voz_velocidad": 170,
     "iniciar_con_windows": False,
+    "segundos_atento": 8,           # tras decir su nombre, cuánto espera una orden antes de volver a dormirse
+    "una_orden": True,              # True: después de cumplir una orden vuelve a dormirse (hay que llamarlo de nuevo)
     "salida_audio": None,           # None = salida predeterminada de Windows; o parte del nombre del dispositivo
     "voces_naturales": False,       # voces neuronales de Piper (suenan robóticas): apagadas
     "personaje": None,              # None = sin voz de personaje; o el nombre de la carpeta en "personajes"
@@ -525,6 +527,7 @@ class Motor(threading.Thread):
         self.recargar = threading.Event()
         self.estado = "dormido"
         self.despierto = False
+        self.despierto_desde = 0.0   # cuándo empezó a esperar la orden (monotonic)
         self.nivel = 0.0
         self.avisos = []
         self.listo = False
@@ -814,20 +817,21 @@ class Motor(threading.Thread):
         cmd = buscar_comando(texto, self.comandos)
         if cmd is None:
             self.hablar("No entendí ese comando.")
-            return
+            return False
         if cmd.get("confirmar"):
             self.hablar("¿Confirmás?")
             respuesta = self._escuchar(reco_confirmar)
             log("[confirmación]", repr(respuesta))
             if not (set(PALABRAS_SI) & set(respuesta.split())):
                 self.hablar("Cancelado.")
-                return
+                return True
         try:
             self._ejecutar(cmd)
         except Exception as error:  # ruta mal puesta, programa inexistente, etc.
             log("[error al ejecutar]", error)
             self.hablar("No pude hacerlo. Revisá la ruta del comando.")
         self.estado = self._estado_de_reposo()
+        return True
 
     def _preparar_comandos(self, modelo):
         try:
@@ -884,6 +888,21 @@ class Motor(threading.Thread):
                     log("[error en la vuelta]\n" + traceback.format_exc())
         log("Motor detenido.")
 
+    def _vaciar_cola(self):
+        """Descarta el audio acumulado (por ejemplo, mientras el asistente hablaba)."""
+        try:
+            while True:
+                self.cola_audio.get_nowait()
+        except queue.Empty:
+            pass
+
+    def _dormir(self, reco_dormido, motivo):
+        log(f"[dormido] {motivo}")
+        self.despierto = False
+        reco_dormido.Reset()
+        self.estado = "dormido"
+        self._vaciar_cola()
+
     def _una_vuelta(self, modelo, reco_dormido, reco_confirmar, activacion):
         if self.recargar.is_set():
             self.recargar.clear()
@@ -895,6 +914,12 @@ class Motor(threading.Thread):
             self.prueba_personaje = False
             if self.voz_activa is not None:
                 self._decir(FRASE_DE_PRUEBA)
+
+        if self.despierto:
+            espera = max(3, int(self.config.get("segundos_atento", 8) or 8))
+            if time.monotonic() - self.despierto_desde > espera:
+                self._dormir(reco_dormido, f"pasaron {espera} s sin una orden")
+                return
 
         try:
             datos = self.cola_audio.get(timeout=0.2)
@@ -926,6 +951,8 @@ class Motor(threading.Thread):
                 self.estado = "escuchando"
                 self.reco_comandos.Reset()
                 self.hablar("Te escucho.")
+                self._vaciar_cola()  # lo que el micrófono oyó mientras hablaba (su propia voz)
+                self.despierto_desde = time.monotonic()
             return
 
         if palabras & set(PALABRAS_DORMIR):
@@ -935,4 +962,9 @@ class Motor(threading.Thread):
             self.estado = "dormido"
             return
 
-        self._procesar(texto, reco_confirmar)
+        if self._procesar(texto, reco_confirmar):
+            if self.config.get("una_orden", True):
+                self._dormir(reco_dormido, "orden cumplida")
+            else:
+                self.despierto_desde = time.monotonic()
+                self._vaciar_cola()
