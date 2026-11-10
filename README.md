@@ -65,6 +65,13 @@ y desde ahí los editás en la pestaña **Comandos**.
 Ejecutá **`crear_exe.bat`**. Deja el programa en `dist\Asistente\` (con el modelo de voz, tus comandos
 y tus personajes al lado). Podés copiar esa carpeta entera donde quieras.
 
+## Crear el instalador
+
+Después de `crear_exe.bat`, ejecutá **`crear_instalador.bat`**. Arma `instalador\Instalar-Lynx.exe`
+(instala Inno Setup solo si falta): un único archivo que se instala como cualquier programa, con acceso
+en el menú Inicio, desinstalador y sin pedir permisos de administrador. No incluye tu configuración ni
+tus comandos: cada persona arma los suyos.
+
 ## Estructura
 
 | Archivo | Para qué sirve |

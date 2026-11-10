@@ -15,3 +15,5 @@ icono.ico
 
 __pycache__/
 *.pyc
+
+/instalador/
