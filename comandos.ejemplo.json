@@ -1,0 +1,38 @@
+[
+  {
+    "frase": "abri youtube",
+    "tipo": "abrir_web",
+    "valor": "https://www.youtube.com",
+    "confirmar": false
+  },
+  {
+    "frase": "abri google",
+    "tipo": "abrir_web",
+    "valor": "https://www.google.com",
+    "confirmar": false
+  },
+  {
+    "frase": "abri el bloc de notas",
+    "tipo": "abrir_programa",
+    "valor": "notepad.exe",
+    "confirmar": false
+  },
+  {
+    "frase": "cerra el bloc de notas",
+    "tipo": "cerrar_programa",
+    "valor": "notepad.exe",
+    "confirmar": true
+  },
+  {
+    "frase": "abri la calculadora",
+    "tipo": "abrir_programa",
+    "valor": "calc.exe",
+    "confirmar": false
+  },
+  {
+    "frase": "apaga la pc",
+    "tipo": "apagar",
+    "valor": "",
+    "confirmar": true
+  }
+]

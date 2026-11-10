@@ -1,0 +1,6 @@
+vosk
+sounddevice
+pystray
+pillow
+pywin32
+comtypes
