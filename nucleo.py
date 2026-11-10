@@ -38,6 +38,7 @@ PREFIJO_NATURAL = "Natural: "
 RATE = 16000
 SIN_VENTANA = 0x08000000 if sys.platform == "win32" else 0  # evita que parpadee una consola
 
+CONFIANZA_ALTA = 0.8     # para cuando antes de su nombre hay otra palabra ("ey Lynx")
 CONFIANZA_MINIMA = 0.55  # confianza (0 a 1) que tiene que tener el reconocedor al oír su nombre
 PALABRAS_DORMIR = ["gracias", "chau", "chao", "adios"]
 PALABRAS_SI = ["si", "dale", "confirmo"]
@@ -981,18 +982,29 @@ class Motor(threading.Thread):
                 mejor = max(mejor or 0.0, float(item.get("conf", 1.0)))
         return mejor
 
-    def _es_llamada(self, resultado, activacion):
+    def _detectar_llamada(self, resultado, activacion):
         """
-        ¿Lo que oyó el reconocedor libre es su nombre? Tiene que ser una frase corta y la palabra
-        tiene que estar bien reconocida (confianza alta): así "lpm", una tos o una charla no lo despiertan.
+        ¿Lo que oyó el reconocedor libre empieza con su nombre? Devuelve None si no, o la lista de
+        palabras que vinieron después (por si dijiste la orden en la misma frase: "Lynx, abrí YouTube").
+        - Nombre al principio: alcanza con una confianza normal (da igual cuánto siga después).
+        - Nombre en segundo lugar ("ey Lynx"): solo en frases de hasta 3 palabras y con confianza alta,
+          para que una charla donde aparece "lince" no lo despierte.
         """
         palabras = limpiar(resultado.get("text", "")).split()
-        if not palabras or len(palabras) > 3 or not (set(palabras) & activacion):
-            return False
-        if not resultado.get("result"):
-            return True  # el reconocedor no informó confianza
-        confianza = self._confianza_del_nombre(resultado, activacion)
-        return confianza is not None and confianza >= CONFIANZA_MINIMA
+        detalle = resultado.get("result") or []
+        for i, palabra in enumerate(palabras[:2]):
+            if palabra not in activacion:
+                continue
+            if i == 1 and len(palabras) > 3:
+                continue
+            if detalle:
+                confianzas = [float(it.get("conf", 1.0)) for it in detalle
+                              if sin_tildes(it.get("word", "")) == palabra]
+                minimo = CONFIANZA_MINIMA if i == 0 else CONFIANZA_ALTA
+                if not confianzas or max(confianzas) < minimo:
+                    continue
+            return palabras[i + 1:]
+        return None
 
     def _una_vuelta(self, modelo, reco_dormido, reco_confirmar, activacion):
         if self.recargar.is_set():
@@ -1039,18 +1051,30 @@ class Motor(threading.Thread):
             return
         if libre:
             # Oye todo, pero no guarda ni muestra lo que no es su nombre (son charlas tuyas).
-            if not self._es_llamada(resultado, activacion):
+            resto = self._detectar_llamada(resultado, activacion)
+            if resto is None:
                 if set(limpiar(crudo).split()) & activacion:
                     confianza = self._confianza_del_nombre(resultado, activacion)
                     log("[no activó] oyó algo parecido a su nombre, confianza "
                         + (f"{confianza:.2f}" if confianza is not None else "?")
-                        + f" (pide {CONFIANZA_MINIMA}) o frase muy larga")
+                        + f" (pide {CONFIANZA_MINIMA}); no estaba al principio de la frase o dudó")
                 return
             log("[oído]", limpiar(crudo), "(confianza",
                 f"{self._confianza_del_nombre(resultado, activacion) or 0:.2f})")
             self.despierto = True
             self.estado = "escuchando"
             self._empezar_a_escuchar_orden()
+            orden = " ".join(resto)
+            if orden and buscar_comando(orden, self.comandos):
+                # Dijiste todo junto ("Lynx, abrí YouTube"): se cumple sin volver a preguntar.
+                log("[orden en la misma frase]", orden)
+                self._procesar(orden, reco_confirmar)
+                if self.config.get("una_orden", True):
+                    self._dormir(reco_dormido, "orden cumplida")
+                else:
+                    self.despierto_desde = time.monotonic()
+                    self._vaciar_cola()
+                return
             self.hablar("Te escucho.")
             self._vaciar_cola()
             self.despierto_desde = time.monotonic()
