@@ -38,6 +38,7 @@ PREFIJO_NATURAL = "Natural: "
 RATE = 16000
 SIN_VENTANA = 0x08000000 if sys.platform == "win32" else 0  # evita que parpadee una consola
 
+CONFIANZA_MINIMA = 0.7  # confianza (0 a 1) que tiene que tener el reconocedor al oír su nombre
 PALABRAS_DORMIR = ["gracias", "chau", "chao", "adios"]
 PALABRAS_SI = ["si", "dale", "confirmo"]
 PALABRAS_NO = ["no", "cancela", "cancelar"]
@@ -81,6 +82,7 @@ CONFIG_BASE = {
     "voz_velocidad": 170,
     "iniciar_con_windows": False,
     "segundos_atento": 8,           # tras decir su nombre, cuánto espera una orden antes de volver a dormirse
+    "activacion_estricta": True,    # el nombre solo vale si el modelo lo oye claro (evita activarse con otras palabras)
     "una_orden": True,              # True: después de cumplir una orden vuelve a dormirse (hay que llamarlo de nuevo)
     "salida_audio": None,           # None = salida predeterminada de Windows; o parte del nombre del dispositivo
     "voces_naturales": False,       # voces neuronales de Piper (suenan robóticas): apagadas
@@ -528,6 +530,7 @@ class Motor(threading.Thread):
         self.estado = "dormido"
         self.despierto = False
         self.despierto_desde = 0.0   # cuándo empezó a esperar la orden (monotonic)
+        self.reco_libre = None       # reconocedor sin gramática: oye todo y solo se activa con el nombre
         self.nivel = 0.0
         self.avisos = []
         self.listo = False
@@ -866,6 +869,13 @@ class Motor(threading.Thread):
         activacion = [sin_tildes(p.strip()) for p in self.config["activacion"] if p.strip()]
         reco_dormido, activables = crear_reconocedor(modelo, [], silenciosas=activacion)
         reco_confirmar, _ = crear_reconocedor(modelo, PALABRAS_SI + PALABRAS_NO)
+        try:
+            from vosk import KaldiRecognizer
+            self.reco_libre = KaldiRecognizer(modelo, RATE)
+            self.reco_libre.SetWords(True)
+        except Exception as error:
+            self.reco_libre = None
+            log("[aviso] no pude crear el reconocedor libre; la activación será menos estricta:", error)
         self._preparar_comandos(modelo)
         GESTOR.reintentar_fallidas()  # si algo falló antes, se vuelve a intentar al reiniciar
         self.preparar_personaje()
@@ -900,8 +910,31 @@ class Motor(threading.Thread):
         log(f"[dormido] {motivo}")
         self.despierto = False
         reco_dormido.Reset()
+        if self.reco_libre is not None:
+            self.reco_libre.Reset()
         self.estado = "dormido"
         self._vaciar_cola()
+
+    def _confianza_del_nombre(self, resultado, activacion):
+        """Mejor confianza (0 a 1) con la que el reconocedor oyó su nombre; None si no lo oyó."""
+        mejor = None
+        for item in resultado.get("result") or []:
+            if sin_tildes(item.get("word", "")) in activacion:
+                mejor = max(mejor or 0.0, float(item.get("conf", 1.0)))
+        return mejor
+
+    def _es_llamada(self, resultado, activacion):
+        """
+        ¿Lo que oyó el reconocedor libre es su nombre? Tiene que ser una frase corta y la palabra
+        tiene que estar bien reconocida (confianza alta): así "lpm", una tos o una charla no lo despiertan.
+        """
+        palabras = limpiar(resultado.get("text", "")).split()
+        if not palabras or len(palabras) > 3 or not (set(palabras) & activacion):
+            return False
+        if not resultado.get("result"):
+            return True  # el reconocedor no informó confianza
+        confianza = self._confianza_del_nombre(resultado, activacion)
+        return confianza is not None and confianza >= CONFIANZA_MINIMA
 
     def _una_vuelta(self, modelo, reco_dormido, reco_confirmar, activacion):
         if self.recargar.is_set():
@@ -932,11 +965,35 @@ class Motor(threading.Thread):
             self.estado = "dormido"
             return
 
-        reconocedor = self.reco_comandos if self.despierto else reco_dormido
+        libre = (not self.despierto) and self.reco_libre is not None \
+            and self.config.get("activacion_estricta", True)
+        if self.despierto:
+            reconocedor = self.reco_comandos
+        else:
+            reconocedor = self.reco_libre if libre else reco_dormido
         if not reconocedor.AcceptWaveform(datos):
             return
-        crudo = json.loads(reconocedor.Result()).get("text", "").strip()
+        resultado = json.loads(reconocedor.Result())
+        crudo = resultado.get("text", "").strip()
         if not crudo:
+            return
+        if libre:
+            # Oye todo, pero no guarda ni muestra lo que no es su nombre (son charlas tuyas).
+            if not self._es_llamada(resultado, activacion):
+                if set(limpiar(crudo).split()) & activacion:
+                    confianza = self._confianza_del_nombre(resultado, activacion)
+                    log("[no activó] oyó algo parecido a su nombre, confianza "
+                        + (f"{confianza:.2f}" if confianza is not None else "?")
+                        + f" (pide {CONFIANZA_MINIMA}) o frase muy larga")
+                return
+            log("[oído]", limpiar(crudo), "(confianza",
+                f"{self._confianza_del_nombre(resultado, activacion) or 0:.2f})")
+            self.despierto = True
+            self.estado = "escuchando"
+            self.reco_comandos.Reset()
+            self.hablar("Te escucho.")
+            self._vaciar_cola()
+            self.despierto_desde = time.monotonic()
             return
         texto = limpiar(crudo)
         if not texto:
