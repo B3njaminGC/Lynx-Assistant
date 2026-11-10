@@ -530,19 +530,19 @@ class VentanaConfiguracion(tk.Toplevel):
         self.var_voz_velocidad = tk.IntVar(value=cfg.get("voz_velocidad", 170))
         self.voces_cargadas = False
 
-        ttk.Checkbutton(marco, text="Mostrar el círculo animado", variable=self.var_circulo
+        estilo.interruptor(marco, text="Mostrar el círculo animado", variable=self.var_circulo
                         ).pack(anchor="w", pady=3)
-        ttk.Checkbutton(marco, text="Que el asistente responda con voz", variable=self.var_voz
+        estilo.interruptor(marco, text="Que el asistente responda con voz", variable=self.var_voz
                         ).pack(anchor="w", pady=3)
-        ttk.Checkbutton(marco, text="Iniciar el asistente al encender Windows",
+        estilo.interruptor(marco, text="Iniciar el asistente al encender Windows",
                         variable=self.var_inicio).pack(anchor="w", pady=3)
 
-        ttk.Checkbutton(marco, text="Subir el volumen del micrófono automáticamente (para hablarle desde lejos)",
+        estilo.interruptor(marco, text="Subir el volumen del micrófono automáticamente (para hablarle desde lejos)",
                         variable=self.var_ganancia).pack(anchor="w", pady=3)
-        ttk.Checkbutton(marco, text="Activación estricta: solo despertarse si oye bien su nombre "
+        estilo.interruptor(marco, text="Activación estricta: solo despertarse si oye bien su nombre "
                                     "(evita que responda a otras palabras)",
                         variable=self.var_estricta).pack(anchor="w", pady=3)
-        ttk.Checkbutton(marco, text="Dormirse después de cada orden (hay que decir su nombre de nuevo)",
+        estilo.interruptor(marco, text="Dormirse después de cada orden (hay que decir su nombre de nuevo)",
                         variable=self.var_una_orden).pack(anchor="w", pady=3)
         fila_atento = ttk.Frame(marco)
         fila_atento.pack(anchor="w", pady=3)

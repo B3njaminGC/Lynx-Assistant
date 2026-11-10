@@ -216,3 +216,54 @@ def preparar_ventana(ventana):
         pass
     barra_oscura(ventana)
     poner_icono(ventana)
+
+
+# ---------------------------------------------------------------- interruptor (sí / no)
+
+def interruptor(padre, text, variable, ancho_texto=None):
+    """
+    Interruptor tipo celular: violeta y con la bolita a la derecha cuando está activado, gris y con
+    la bolita a la izquierda cuando no. Se ve claro de un vistazo (la casilla normal casi no se nota
+    en el tema oscuro). Devuelve un Frame para usar con pack() o grid().
+    """
+    marco = ttk.Frame(padre)
+    ancho, alto = 44, 24
+    lienzo = tk.Canvas(marco, width=ancho, height=alto, bg=P["fondo"], highlightthickness=0, bd=0,
+                       cursor="hand2")
+    lienzo.pack(side="left", padx=(0, 10))
+    etiqueta = ttk.Label(marco, text=text, cursor="hand2", wraplength=ancho_texto or 700, justify="left")
+    etiqueta.pack(side="left")
+    texto_estado = ttk.Label(marco, text="", style="Suave.TLabel")
+    texto_estado.pack(side="left", padx=(8, 0))
+
+    def dibujar(*_):
+        try:
+            activo = bool(variable.get())
+            lienzo.delete("all")
+            fondo = P["acento"] if activo else "#3a3e50"
+            r = alto / 2
+            lienzo.create_oval(0, 0, alto, alto, fill=fondo, outline=fondo)
+            lienzo.create_oval(ancho - alto, 0, ancho, alto, fill=fondo, outline=fondo)
+            lienzo.create_rectangle(r, 0, ancho - r, alto, fill=fondo, outline=fondo)
+            x = ancho - r if activo else r
+            lienzo.create_oval(x - r + 3, 3, x + r - 3, alto - 3, fill="#ffffff", outline="")
+            texto_estado.config(text="Sí" if activo else "No",
+                                foreground=P["acento_claro"] if activo else P["suave"])
+        except Exception:
+            pass
+
+    def alternar(_evento=None):
+        try:
+            variable.set(not variable.get())
+        except Exception:
+            pass
+        dibujar()
+
+    for widget in (lienzo, etiqueta, texto_estado):
+        widget.bind("<Button-1>", alternar)
+    try:
+        variable.trace_add("write", dibujar)
+    except Exception:
+        pass
+    dibujar()
+    return marco

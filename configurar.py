@@ -66,6 +66,13 @@ def valor_en_texto(valor):
     return ", ".join(valor) if isinstance(valor, list) else valor
 
 
+try:
+    from estilo import interruptor
+except Exception:  # sin el tema: casilla común
+    def interruptor(padre, text, variable):
+        return ttk.Checkbutton(padre, text=text, variable=variable)
+
+
 class Dialogo(tk.Toplevel):
     """Ventana para crear o editar un comando."""
 
@@ -112,8 +119,8 @@ class Dialogo(tk.Toplevel):
         ttk.Entry(marco, textvariable=self.var_respuesta, width=50).grid(sticky="we", pady=(0, 10))
 
         self.var_confirmar = tk.BooleanVar(value=cmd.get("confirmar", False) if cmd else False)
-        ttk.Checkbutton(marco, text="Pedir confirmación antes de hacerlo",
-                        variable=self.var_confirmar).grid(sticky="w", pady=(0, 12))
+        interruptor(marco, "Pedir confirmación antes de hacerlo",
+                    self.var_confirmar).grid(sticky="w", pady=(0, 12))
 
         botones = ttk.Frame(marco)
         botones.grid(sticky="e")
