@@ -9,6 +9,7 @@ import tkinter as tk
 import webbrowser
 from tkinter import filedialog, messagebox, ttk
 
+import actualizar
 import estilo
 import importar
 import nucleo
@@ -191,7 +192,14 @@ class VentanaConfiguracion(tk.Toplevel):
         textos = ttk.Frame(cab)
         textos.pack(side="left")
         ttk.Label(textos, text="Lynx", style="Titulo.TLabel").pack(anchor="w")
-        ttk.Label(textos, text="Tu asistente de voz, sin internet", style="Suave.TLabel").pack(anchor="w")
+        ttk.Label(textos, text="Tu asistente de voz, sin internet  ·  versión " + actualizar.VERSION,
+                  style="Suave.TLabel").pack(anchor="w")
+        # Aviso de versión nueva: aparece solo si la búsqueda en segundo plano encontró una.
+        self.aviso_version = ttk.Frame(cab)
+        self.var_version = tk.StringVar(value="")
+        ttk.Button(self.aviso_version, text="Descargar", style="Accent.TButton",
+                   command=self.abrir_descarga).pack(side="right", padx=(10, 0))
+        ttk.Label(self.aviso_version, textvariable=self.var_version).pack(side="right")
 
     # ------------------------------------------------------------ comandos
 
@@ -522,6 +530,7 @@ class VentanaConfiguracion(tk.Toplevel):
         self.var_estricta = tk.BooleanVar(value=cfg.get("activacion_estricta", True))
         self.var_ganancia = tk.BooleanVar(value=cfg.get("ganancia_auto", True))
         self.var_atento = tk.IntVar(value=cfg.get("segundos_atento", 8))
+        self.var_actualiz = tk.BooleanVar(value=cfg.get("buscar_actualizaciones", True))
         self.var_activacion = tk.StringVar(value=", ".join(cfg["activacion"]))
         voz_guardada = cfg.get("voz")
         if voz_guardada and voz_guardada.startswith(nucleo.PREFIJO_NATURAL) and not cfg.get("voces_naturales"):
@@ -536,6 +545,8 @@ class VentanaConfiguracion(tk.Toplevel):
                         ).pack(anchor="w", pady=3)
         estilo.interruptor(marco, text="Iniciar el asistente al encender Windows",
                         variable=self.var_inicio).pack(anchor="w", pady=3)
+        estilo.interruptor(marco, text="Avisarme si hay una versión nueva (usa internet una vez al día; solo avisa)",
+                        variable=self.var_actualiz).pack(anchor="w", pady=3)
 
         estilo.interruptor(marco, text="Subir el volumen del micrófono automáticamente (para hablarle desde lejos)",
                         variable=self.var_ganancia).pack(anchor="w", pady=3)
@@ -609,6 +620,7 @@ class VentanaConfiguracion(tk.Toplevel):
         nuevo["una_orden"] = self.var_una_orden.get()
         nuevo["activacion_estricta"] = self.var_estricta.get()
         nuevo["ganancia_auto"] = self.var_ganancia.get()
+        nuevo["buscar_actualizaciones"] = self.var_actualiz.get()
         try:
             nuevo["segundos_atento"] = max(3, min(30, int(self.var_atento.get())))
         except (tk.TclError, ValueError):
@@ -633,10 +645,18 @@ class VentanaConfiguracion(tk.Toplevel):
 
     # ------------------------------------------------------------ estado en vivo
 
+    def abrir_descarga(self):
+        if self.app.actualizacion:
+            webbrowser.open(self.app.actualizacion[1])
+
     def _tic(self):
         if not self.vivo:
             return
         motor = self.app.motor
+        nueva = self.app.actualizacion
+        if nueva and not self.aviso_version.winfo_ismapped():
+            self.var_version.set("Hay una versión nueva: " + nueva[0])
+            self.aviso_version.pack(side="right")
         self._estado_personaje()
         if motor is not None:
             self.barra_nivel["value"] = motor.nivel * 100

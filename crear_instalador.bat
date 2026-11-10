@@ -31,8 +31,13 @@ if not defined ISCC (
   exit /b 1
 )
 
-echo Armando el instalador (puede tardar un par de minutos)...
-"%ISCC%" lynx.iss
+set "PY="
+py -3 --version >nul 2>&1 && set "PY=py -3"
+if not defined PY python --version >nul 2>&1 && set "PY=python"
+set "VERSION=1.0"
+if defined PY for /f %%v in ('%PY% -c "import actualizar; print(actualizar.VERSION)"') do set "VERSION=%%v"
+echo Armando el instalador de la version %VERSION% (puede tardar un par de minutos)...
+"%ISCC%" /DVersion=%VERSION% lynx.iss
 if errorlevel 1 (
   echo.
   echo Algo fallo. Sacale una captura a esta ventana y mandamela.

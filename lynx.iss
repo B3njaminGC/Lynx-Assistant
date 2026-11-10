@@ -1,6 +1,8 @@
 ; Instalador de Lynx (Inno Setup). Lo genera crear_instalador.bat, no hace falta tocarlo.
 #define NombreApp "Lynx"
-#define Version "1.0"
+#ifndef Version
+  #define Version "1.0"
+#endif
 
 [Setup]
 AppId={{6F1B7A52-3C1E-4D8B-9A47-2E5C0D7B91A3}

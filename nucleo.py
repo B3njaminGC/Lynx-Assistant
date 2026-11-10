@@ -86,6 +86,7 @@ CONFIG_BASE = {
     "ganancia_auto": True,          # sube solo el volumen del micrófono cuando hablás lejos o bajito
     "activacion_estricta": True,    # el nombre solo vale si el modelo lo oye claro (evita activarse con otras palabras)
     "una_orden": True,              # True: después de cumplir una orden vuelve a dormirse (hay que llamarlo de nuevo)
+    "buscar_actualizaciones": True, # una vez al día mira en GitHub si hay versión nueva (solo avisa)
     "salida_audio": None,           # None = salida predeterminada de Windows; o parte del nombre del dispositivo
     "voces_naturales": False,       # voces neuronales de Piper (suenan robóticas): apagadas
     "personaje": None,              # None = sin voz de personaje; o el nombre de la carpeta en "personajes"

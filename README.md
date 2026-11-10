@@ -72,6 +72,13 @@ Después de `crear_exe.bat`, ejecutá **`crear_instalador.bat`**. Arma `instalad
 en el menú Inicio, desinstalador y sin pedir permisos de administrador. No incluye tu configuración ni
 tus comandos: cada persona arma los suyos.
 
+## Versiones nuevas
+
+Lynx mira una vez al día (y al abrirse) si hay un *release* más nuevo en GitHub; si lo hay, la ventana de
+configuración muestra un botón "Descargar". Nunca instala nada solo, y se apaga desde la pestaña General.
+Para sacar una versión: subí el número `VERSION` en `actualizar.py`, corré `crear_exe.bat` y
+`crear_instalador.bat`, y publicá un release (con la etiqueta `v` + el número) con `Instalar-Lynx.exe` adjunto.
+
 ## Estructura
 
 | Archivo | Para qué sirve |

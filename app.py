@@ -19,6 +19,7 @@ import tkinter as tk
 from tkinter import messagebox
 
 import estilo
+import actualizar
 import nucleo
 from ventanas import Circulo, VentanaConfiguracion
 
@@ -53,6 +54,7 @@ class App:
         self.icono = None
         self.saliendo = False
         self.error_mostrado = False
+        self.actualizacion = None  # (versión, enlace) si hay una nueva
 
         self.raiz = tk.Tk()
         self.raiz.withdraw()
@@ -64,6 +66,7 @@ class App:
         self._crear_bandeja()
         threading.Thread(target=self._atender_otras_copias, args=(servidor,),
                          daemon=True).start()
+        threading.Thread(target=self._buscar_actualizacion, daemon=True).start()
         if not silencioso:
             self.cola_ui.put("configurar")
         self.raiz.after(100, self._bucle)
@@ -151,6 +154,17 @@ class App:
             nucleo.log("Sin ícono junto al reloj:", error)
 
     # ------------------------------------------------------------ vida de la app
+
+    def _buscar_actualizacion(self):
+        """Al arrancar y después una vez al día. Si no hay internet, no pasa nada."""
+        import time
+        while not self.saliendo:
+            if self.config.get("buscar_actualizaciones", True):
+                hallada = actualizar.consultar()
+                if hallada and hallada != self.actualizacion:
+                    self.actualizacion = hallada
+                    nucleo.log("[versión nueva disponible]", hallada[0])
+            time.sleep(24 * 3600)
 
     def _atender_otras_copias(self, servidor):
         while True:
