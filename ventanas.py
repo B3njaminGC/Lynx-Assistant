@@ -595,8 +595,10 @@ class VentanaConfiguracion(tk.Toplevel):
         if actual and actual not in valores:
             valores.append(actual)
         self.var_salida = tk.StringVar(value=actual or SALIDA_PREDETERMINADA)
-        ttk.Combobox(marco, textvariable=self.var_salida, values=valores, state="readonly",
-                     width=58).pack(anchor="w", pady=4)
+        self._salida_mostrada = self.var_salida.get()  # lo que mostraba la lista la última vez que se sincronizó
+        self.combo_salida = ttk.Combobox(marco, textvariable=self.var_salida, values=valores,
+                                         state="readonly", width=58)
+        self.combo_salida.pack(anchor="w", pady=4)
 
     def probar_voz(self):
         """Suena con la voz y velocidad elegidas, sin guardar nada."""
@@ -631,7 +633,9 @@ class VentanaConfiguracion(tk.Toplevel):
         nuevo["voz"] = None if voz == VOZ_PREDETERMINADA else voz
         nuevo["voz_velocidad"] = int(self.var_voz_velocidad.get())
         salida = self.var_salida.get()
-        nuevo["salida_audio"] = None if salida == SALIDA_PREDETERMINADA else salida
+        if salida != self._salida_mostrada:  # solo si la cambiaste vos en esta lista
+            nuevo["salida_audio"] = None if salida == SALIDA_PREDETERMINADA else salida
+        # Si no, queda la que esté en uso ahora (un comando de voz pudo haberla cambiado con la ventana abierta).
         personaje = self.var_personaje.get()
         nuevo["personaje"] = None if personaje == SIN_PERSONAJE else personaje
         nuevo["personaje_tono"] = int(self.var_tono.get())
@@ -642,6 +646,7 @@ class VentanaConfiguracion(tk.Toplevel):
             nucleo.log("[error al guardar la configuración]", error)
             messagebox.showerror("No pude guardar", str(error), parent=self)
             return
+        self._salida_mostrada = self.var_salida.get()
         self.var_pie.set("Cambios guardados.")
 
     # ------------------------------------------------------------ estado en vivo
@@ -655,10 +660,20 @@ class VentanaConfiguracion(tk.Toplevel):
         else:
             webbrowser.open(nueva.enlace)
 
+    def _sincronizar_salida(self):
+        """Un comando de voz puede cambiar la salida con esta ventana abierta: la lista lo refleja."""
+        en_uso = self.app.config.get("salida_audio") or SALIDA_PREDETERMINADA
+        if self.var_salida.get() == self._salida_mostrada and en_uso != self._salida_mostrada:
+            if en_uso not in self.combo_salida["values"]:
+                self.combo_salida["values"] = list(self.combo_salida["values"]) + [en_uso]
+            self.var_salida.set(en_uso)
+            self._salida_mostrada = en_uso
+
     def _tic(self):
         if not self.vivo:
             return
         motor = self.app.motor
+        self._sincronizar_salida()
         nueva = self.app.actualizacion
         if nueva and not self.aviso_version.winfo_ismapped():
             self.var_version.set("Hay una versión nueva: " + nueva.version)
