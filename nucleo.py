@@ -103,6 +103,7 @@ RESPUESTAS_POR_DEFECTO = {
     "apagar": "Apagando la PC.",
     "cambiar_salida": "Listo, ahora hablo por acá.",
     "tecla_multimedia": "Listo.",
+    "reproducir_musica": "Poniendo música.",
 }
 
 # Teclas multimedia de Windows: (código de tecla, cuántas veces se aprieta).
@@ -529,6 +530,35 @@ class VozPiper:
 
 # ---------------------------------------------------------------- motor de voz
 
+EXTENSIONES_AUDIO = (".mp3", ".flac", ".wav", ".m4a", ".aac", ".ogg", ".opus", ".wma", ".mp4", ".mkv", ".webm")
+
+
+def buscar_vlc():
+    """Ruta de vlc.exe, o None si no está instalado."""
+    import shutil
+    candidatos = [os.path.join(os.environ.get(v, ""), "VideoLAN", "VLC", "vlc.exe")
+                  for v in ("ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA")]
+    for ruta in candidatos:
+        if os.path.isfile(ruta):
+            return ruta
+    return shutil.which("vlc")
+
+
+def armar_lista(rutas):
+    """Rutas de canciones sueltas y/o carpetas -> lista de archivos de audio que existen (en orden)."""
+    lista = []
+    for ruta in rutas:
+        ruta = os.path.expandvars(str(ruta).strip().strip('"'))
+        if os.path.isdir(ruta):
+            for nombre in sorted(os.listdir(ruta), key=str.lower):
+                if nombre.lower().endswith(EXTENSIONES_AUDIO):
+                    lista.append(os.path.join(ruta, nombre))
+        elif os.path.isfile(ruta):
+            lista.append(ruta)
+    return lista
+
+
+
 class Motor(threading.Thread):
     """
     Escucha el micrófono y ejecuta comandos. Estados que expone en `estado`:
@@ -819,6 +849,26 @@ class Motor(threading.Thread):
             # Sin /F: le pide a cada programa que se cierre, así puede avisar si hay cambios sin guardar.
             self._correr(["taskkill", "/IM", proceso])
 
+    def _reproducir_musica(self, valor, respuesta):
+        rutas = valor if isinstance(valor, list) else [valor]
+        lista = armar_lista(rutas)
+        if not lista:
+            log("[música] no encontré ninguna canción en:", rutas)
+            self.hablar("No encuentro esas canciones.")
+            return
+        vlc = buscar_vlc()
+        if not vlc:
+            log("[música] VLC no está instalado")
+            self.hablar("No encuentro VLC.")
+            return
+        # Una lista .m3u8 evita límites de largo de comando y funciona con tildes y espacios.
+        archivo_lista = os.path.join(os.environ.get("TEMP", "."), "lynx_lista.m3u8")
+        with open(archivo_lista, "w", encoding="utf-8") as f:
+            f.write("#EXTM3U\n" + "\n".join(lista) + "\n")
+        subprocess.Popen([vlc, archivo_lista], close_fds=True)
+        log("[música]", len(lista), "canciones en VLC")
+        self.hablar(respuesta)
+
     def _ejecutar(self, cmd):
         tipo = cmd["tipo"]
         valor = cmd.get("valor", "")
@@ -829,6 +879,8 @@ class Motor(threading.Thread):
             os.startfile(os.path.expandvars(valor))
             time.sleep(0.4)
             self.hablar(respuesta)
+        elif tipo == "reproducir_musica":
+            self._reproducir_musica(valor, respuesta)
         elif tipo == "cerrar_programa":
             self._cerrar_procesos([valor])
             self.hablar(respuesta)
