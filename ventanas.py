@@ -197,8 +197,9 @@ class VentanaConfiguracion(tk.Toplevel):
         # Aviso de versión nueva: aparece solo si la búsqueda en segundo plano encontró una.
         self.aviso_version = ttk.Frame(cab)
         self.var_version = tk.StringVar(value="")
-        ttk.Button(self.aviso_version, text="Descargar", style="Accent.TButton",
-                   command=self.abrir_descarga).pack(side="right", padx=(10, 0))
+        self.btn_version = ttk.Button(self.aviso_version, text="Descargar", style="Accent.TButton",
+                                      command=self.abrir_descarga)
+        self.btn_version.pack(side="right", padx=(10, 0))
         ttk.Label(self.aviso_version, textvariable=self.var_version).pack(side="right")
 
     # ------------------------------------------------------------ comandos
@@ -646,8 +647,13 @@ class VentanaConfiguracion(tk.Toplevel):
     # ------------------------------------------------------------ estado en vivo
 
     def abrir_descarga(self):
-        if self.app.actualizacion:
-            webbrowser.open(self.app.actualizacion[1])
+        nueva = self.app.actualizacion
+        if not nueva:
+            return
+        if actualizar.esta_instalado() and nueva.descarga:
+            self.app.actualizar_ahora()  # se baja, se verifica e instala solo; tus datos quedan como están
+        else:
+            webbrowser.open(nueva.enlace)
 
     def _tic(self):
         if not self.vivo:
@@ -655,8 +661,12 @@ class VentanaConfiguracion(tk.Toplevel):
         motor = self.app.motor
         nueva = self.app.actualizacion
         if nueva and not self.aviso_version.winfo_ismapped():
-            self.var_version.set("Hay una versión nueva: " + nueva[0])
+            self.var_version.set("Hay una versión nueva: " + nueva.version)
+            if actualizar.esta_instalado() and nueva.descarga:
+                self.btn_version.config(text="Actualizar ahora")
             self.aviso_version.pack(side="right")
+        if nueva and self.app.estado_actualizacion:
+            self.var_version.set(self.app.estado_actualizacion)
         self._estado_personaje()
         if motor is not None:
             self.barra_nivel["value"] = motor.nivel * 100

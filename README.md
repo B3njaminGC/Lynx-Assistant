@@ -75,9 +75,9 @@ tus comandos: cada persona arma los suyos.
 ## Versiones nuevas
 
 Lynx mira una vez al día (y al abrirse) si hay un *release* más nuevo en GitHub; si lo hay, la ventana de
-configuración muestra un botón "Descargar". Nunca instala nada solo, y se apaga desde la pestaña General.
+configuración muestra un botón "Descargar". Si Lynx está instalado con `Instalar-Lynx.exe`, el botón dice "Actualizar ahora": baja el instalador del release, comprueba su SHA-256 y se reinstala en silencio, conservando tu configuración y tus comandos. Nunca instala nada sin que toques el botón, y el aviso se apaga desde la pestaña General.
 Para sacar una versión: subí el número `VERSION` en `actualizar.py`, corré `crear_exe.bat` y
-`crear_instalador.bat`, y publicá un release (con la etiqueta `v` + el número) con `Instalar-Lynx.exe` adjunto.
+`crear_instalador.bat`, y publicá un release (con la etiqueta `v` + el número) con `Instalar-Lynx.exe` adjunto (con ese nombre exacto).
 
 ## Estructura
 

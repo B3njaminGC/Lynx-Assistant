@@ -8,6 +8,7 @@ import queue
 import socket
 import sys
 import threading
+import time
 import traceback
 
 if sys.stdout is None:  # programa sin consola: que las librerías no fallen al imprimir
@@ -54,7 +55,9 @@ class App:
         self.icono = None
         self.saliendo = False
         self.error_mostrado = False
-        self.actualizacion = None  # (versión, enlace) si hay una nueva
+        self.actualizacion = None  # actualizar.Nueva si hay una versión nueva
+        self.estado_actualizacion = ""  # texto mientras se descarga/instala
+        self.actualizando = False
 
         self.raiz = tk.Tk()
         self.raiz.withdraw()
@@ -157,14 +160,38 @@ class App:
 
     def _buscar_actualizacion(self):
         """Al arrancar y después una vez al día. Si no hay internet, no pasa nada."""
-        import time
         while not self.saliendo:
             if self.config.get("buscar_actualizaciones", True):
                 hallada = actualizar.consultar()
                 if hallada and hallada != self.actualizacion:
                     self.actualizacion = hallada
-                    nucleo.log("[versión nueva disponible]", hallada[0])
+                    nucleo.log("[versión nueva disponible]", hallada.version)
             time.sleep(24 * 3600)
+
+    def actualizar_ahora(self):
+        """Baja el instalador nuevo, lo verifica y lo corre en silencio; Lynx se cierra y vuelve a abrir solo."""
+        if self.actualizando or not self.actualizacion:
+            return
+        self.actualizando = True
+        info = self.actualizacion
+
+        def trabajo():
+            try:
+                self.estado_actualizacion = "Descargando la versión " + info.version + "..."
+                ruta = actualizar.descargar_instalador(
+                    info, lambda f: setattr(self, "estado_actualizacion",
+                                            f"Descargando la versión {info.version}: {int(f * 100)}%"))
+                self.estado_actualizacion = "Instalando... Lynx se va a reiniciar solo."
+                nucleo.log("[actualización] instalando", info.version)
+                actualizar.lanzar_instalador(ruta)
+                time.sleep(1.5)
+                self.cola_ui.put("salir")
+            except Exception as error:
+                nucleo.log("[actualización falló]", error)
+                self.estado_actualizacion = "No pude actualizar: " + str(error)
+                self.actualizando = False
+
+        threading.Thread(target=trabajo, daemon=True).start()
 
     def _atender_otras_copias(self, servidor):
         while True:

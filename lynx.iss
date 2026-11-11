@@ -39,3 +39,5 @@ Name: "{autodesktop}\Lynx"; Filename: "{app}\Asistente.exe"; Tasks: escritorio
 
 [Run]
 Filename: "{app}\Asistente.exe"; Description: "Abrir Lynx ahora"; Flags: nowait postinstall skipifsilent
+; Cuando Lynx se actualiza solo (instalación silenciosa) se vuelve a abrir sin preguntar.
+Filename: "{app}\Asistente.exe"; Flags: nowait skipifnotsilent
