@@ -38,8 +38,9 @@ PREFIJO_NATURAL = "Natural: "
 RATE = 16000
 SIN_VENTANA = 0x08000000 if sys.platform == "win32" else 0  # evita que parpadee una consola
 
-CONFIANZA_ALTA = 0.8     # para cuando antes de su nombre hay otra palabra ("ey Lynx")
-CONFIANZA_MINIMA = 0.55  # confianza (0 a 1) que tiene que tener el reconocedor al oír su nombre
+CONFIANZA_ALTA = 0.8     # (ya no se usa solo; ver MINIMA_SEGUN_POSICION)
+MINIMA_SEGUN_POSICION = (0.45, 0.6, 0.75)  # confianza que pide su nombre si es la 1ª, 2ª o 3ª palabra
+CONFIANZA_MINIMA = 0.45  # confianza (0 a 1) que tiene que tener el reconocedor al oír su nombre
 PALABRAS_DORMIR = ["gracias", "chau", "chao", "adios"]
 PALABRAS_SI = ["si", "dale", "confirmo"]
 PALABRAS_NO = ["no", "cancela", "cancelar"]
@@ -85,6 +86,7 @@ CONFIG_BASE = {
     "segundos_atento": 8,           # tras decir su nombre, cuánto espera una orden antes de volver a dormirse
     "ganancia_auto": True,          # sube solo el volumen del micrófono cuando hablás lejos o bajito
     "activacion_estricta": True,    # el nombre solo vale si el modelo lo oye claro (evita activarse con otras palabras)
+    "diagnostico_activacion": False, # anota en el registro todo lo que oye dormido (solo para buscar por qué no te detecta)
     "una_orden": True,              # True: después de cumplir una orden vuelve a dormirse (hay que llamarlo de nuevo)
     "buscar_actualizaciones": True, # una vez al día mira en GitHub si hay versión nueva (solo avisa)
     "salida_audio": None,           # None = salida predeterminada de Windows; o parte del nombre del dispositivo
@@ -1039,22 +1041,21 @@ class Motor(threading.Thread):
         """
         ¿Lo que oyó el reconocedor libre empieza con su nombre? Devuelve None si no, o la lista de
         palabras que vinieron después (por si dijiste la orden en la misma frase: "Lynx, abrí YouTube").
-        - Nombre al principio: alcanza con una confianza normal (da igual cuánto siga después).
-        - Nombre en segundo lugar ("ey Lynx"): solo en frases de hasta 3 palabras y con confianza alta,
-          para que una charla donde aparece "lince" no lo despierte.
+        - Nombre al principio: alcanza con una confianza baja (da igual cuánto siga después).
+        - Nombre en 2ª o 3ª palabra ("ey Lynx", "che bueno Lynx"): frases de hasta 4 palabras y más
+          confianza, para que una charla donde aparece su nombre no lo despierte.
         """
         palabras = limpiar(resultado.get("text", "")).split()
         detalle = resultado.get("result") or []
-        for i, palabra in enumerate(palabras[:2]):
+        for i, palabra in enumerate(palabras[:3]):
             if palabra not in activacion:
                 continue
-            if i == 1 and len(palabras) > 3:
+            if i >= 1 and len(palabras) > 4:
                 continue
             if detalle:
                 confianzas = [float(it.get("conf", 1.0)) for it in detalle
                               if sin_tildes(it.get("word", "")) == palabra]
-                minimo = CONFIANZA_MINIMA if i == 0 else CONFIANZA_ALTA
-                if not confianzas or max(confianzas) < minimo:
+                if not confianzas or max(confianzas) < MINIMA_SEGUN_POSICION[i]:
                     continue
             return palabras[i + 1:]
         return None
@@ -1105,6 +1106,9 @@ class Motor(threading.Thread):
         if libre:
             # Oye todo, pero no guarda ni muestra lo que no es su nombre (son charlas tuyas).
             resto = self._detectar_llamada(resultado, activacion)
+            if self.config.get("diagnostico_activacion") and resto is None:
+                # Solo mientras lo tenés prendido (para ver qué entiende cuando no te responde).
+                log("[diagnóstico] oyó:", limpiar(crudo))
             if resto is None:
                 if set(limpiar(crudo).split()) & activacion:
                     confianza = self._confianza_del_nombre(resultado, activacion)

@@ -531,6 +531,7 @@ class VentanaConfiguracion(tk.Toplevel):
         self.var_estricta = tk.BooleanVar(value=cfg.get("activacion_estricta", True))
         self.var_ganancia = tk.BooleanVar(value=cfg.get("ganancia_auto", True))
         self.var_atento = tk.IntVar(value=cfg.get("segundos_atento", 8))
+        self.var_diag = tk.BooleanVar(value=cfg.get("diagnostico_activacion", False))
         self.var_actualiz = tk.BooleanVar(value=cfg.get("buscar_actualizaciones", True))
         self.var_activacion = tk.StringVar(value=", ".join(cfg["activacion"]))
         voz_guardada = cfg.get("voz")
@@ -554,6 +555,9 @@ class VentanaConfiguracion(tk.Toplevel):
         estilo.interruptor(marco, text="Activación estricta: solo despertarse si oye bien su nombre "
                                     "(evita que responda a otras palabras)",
                         variable=self.var_estricta).pack(anchor="w", pady=3)
+        estilo.interruptor(marco, text="Modo diagnóstico: anotar en el registro lo que oye mientras duerme "
+                                    "(solo para probar; apagalo después)",
+                        variable=self.var_diag).pack(anchor="w", pady=3)
         estilo.interruptor(marco, text="Dormirse después de cada orden (hay que decir su nombre de nuevo)",
                         variable=self.var_una_orden).pack(anchor="w", pady=3)
         fila_atento = ttk.Frame(marco)
@@ -624,6 +628,7 @@ class VentanaConfiguracion(tk.Toplevel):
         nuevo["activacion_estricta"] = self.var_estricta.get()
         nuevo["ganancia_auto"] = self.var_ganancia.get()
         nuevo["buscar_actualizaciones"] = self.var_actualiz.get()
+        nuevo["diagnostico_activacion"] = self.var_diag.get()
         try:
             nuevo["segundos_atento"] = max(3, min(30, int(self.var_atento.get())))
         except (tk.TclError, ValueError):
