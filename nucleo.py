@@ -3,6 +3,7 @@ Núcleo del asistente: rutas, registro (log), configuración, comandos y motor d
 No tiene ventanas: el motor corre en un hilo y la interfaz le pregunta su estado.
 """
 import base64
+import difflib
 import json
 import math
 import os
@@ -1058,6 +1059,19 @@ class Motor(threading.Thread):
                 if not confianzas or max(confianzas) < MINIMA_SEGUN_POSICION[i]:
                     continue
             return palabras[i + 1:]
+        # Dijiste solo su nombre pero el modelo lo escribió parecido ("pece" -> "pese", "links" -> "link"):
+        # en frases de 1 o 2 palabras se acepta si se parece mucho y lo oyó con algo de seguridad.
+        if palabras and len(palabras) <= 2 and palabras[0] not in activacion:
+            primera = palabras[0]
+            for nombre in activacion:
+                if len(nombre) >= 4 and len(primera) >= 3 and \
+                        difflib.SequenceMatcher(None, primera, nombre).ratio() >= 0.75:
+                    confianzas = [float(it.get("conf", 1.0)) for it in detalle
+                                  if sin_tildes(it.get("word", "")) == primera]
+                    if confianzas and max(confianzas) < 0.5:
+                        continue
+                    log(f"[parecido] oyó '{primera}' y se parece a '{nombre}'")
+                    return palabras[1:]
         return None
 
     def _una_vuelta(self, modelo, reco_dormido, reco_confirmar, activacion):
