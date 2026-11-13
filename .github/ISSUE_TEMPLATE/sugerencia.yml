@@ -1,0 +1,24 @@
+name: Sugerir una mejora
+description: Una idea para que Lynx haga algo nuevo o mejor
+labels: ["sugerencia"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: ¿Qué te gustaría que haga?
+      description: Contalo con tus palabras, sin tecnicismos.
+    validations:
+      required: true
+  - type: textarea
+    id: para-que
+    attributes:
+      label: ¿Para qué lo usarías?
+      description: Un ejemplo concreto ayuda mucho ("Lynx, ...").
+    validations:
+      required: false
+  - type: textarea
+    id: alternativas
+    attributes:
+      label: ¿Lo resolvés hoy de otra forma?
+    validations:
+      required: false

@@ -14,3 +14,5 @@
 
 Si usás una herramienta de IA para programar, está bien; lo que importa es que entiendas el cambio, lo hayas
 probado y lo expliques en la descripción.
+
+Para errores y sugerencias usá los [formularios de issues](https://github.com/B3njaminGC/Lynx-Assistant/issues/new/choose).

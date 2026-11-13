@@ -88,6 +88,10 @@ En la pestaña **Respaldo** guardás y restaurás todos tus comandos y ajustes (
 exporta). Además Lynx hace una copia automática por día en `respaldos\` (guarda las últimas 10) y otra
 antes de cada actualización. Al restaurar, primero se guarda lo que tenías.
 
+## Errores y sugerencias
+
+¿Algo no funciona o tenés una idea? Abrí un [issue](https://github.com/B3njaminGC/Lynx-Assistant/issues/new/choose) y completá el formulario. No pegues tu token de Telegram ni datos personales.
+
 ## Actualizaciones
 
 Lynx busca una vez al día si hay una versión nueva en GitHub y te avisa en la ventana de configuración. Nunca instala nada sin que toques el botón, y el aviso se apaga desde la pestaña General. Si lo instalaste con `Instalar-Lynx.exe`, "Actualizar ahora" conserva tus comandos y ajustes.

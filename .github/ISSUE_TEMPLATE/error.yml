@@ -1,0 +1,56 @@
+name: Reportar un error
+description: Algo no funciona como debería
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por avisar. **No pegues tu token de Telegram ni datos personales** en este formulario.
+  - type: input
+    id: version
+    attributes:
+      label: Versión de Lynx
+      description: Aparece arriba en la ventana de configuración (por ejemplo 1.4).
+    validations:
+      required: true
+  - type: dropdown
+    id: instalacion
+    attributes:
+      label: ¿Cómo lo instalaste?
+      options:
+        - Con Instalar-Lynx.exe
+        - Desde el código (probar_app.bat)
+        - Con el .exe de crear_exe.bat
+    validations:
+      required: true
+  - type: textarea
+    id: que-paso
+    attributes:
+      label: ¿Qué pasó?
+      description: Contá qué esperabas que pasara y qué pasó en realidad.
+    validations:
+      required: true
+  - type: textarea
+    id: pasos
+    attributes:
+      label: Pasos para repetirlo
+      placeholder: |
+        1. Dije "Lynx, abrí ..."
+        2. ...
+    validations:
+      required: false
+  - type: textarea
+    id: registro
+    attributes:
+      label: Registro (opcional)
+      description: Las últimas líneas de `asistente.log` (está en la carpeta donde instalaste Lynx). Si activás el modo diagnóstico en la pestaña General, también muestra qué entendió. Revisá que no tenga datos personales.
+      render: text
+    validations:
+      required: false
+  - type: input
+    id: windows
+    attributes:
+      label: Versión de Windows
+      placeholder: Windows 11 23H2
+    validations:
+      required: false
