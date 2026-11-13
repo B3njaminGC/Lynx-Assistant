@@ -7,6 +7,7 @@ la tuya (por su ID). Cualquier otra persona que le escriba al bot es ignorada.
 Usa solo la librería estándar: no hay que instalar nada.
 """
 import ctypes
+import difflib
 import json
 import os
 import subprocess
@@ -38,8 +39,43 @@ AYUDA = (
     "• \"apagá la PC cuando termine la descarga\" (te aviso y la apago con cuenta regresiva)\n"
     "• \"apagá la PC\" (te pido confirmación)\n"
     "• \"cancelar\" (frena un apagado o una vigilancia)\n"
+    "• \"comandos\" (la lista de todo lo que le podés pedir a Lynx)\n"
     "• cualquier comando de tu Lynx, tal como lo dirías en voz alta (\"abrí OBS\", \"playlist fortnite\")."
 )
+
+TIPOS = {
+    "abrir_programa": "abre un programa", "abrir_web": "abre una página", "cerrar_programa": "cierra un programa",
+    "cerrar_varios": "cierra varios programas", "apagar": "apaga la PC", "cambiar_salida": "cambia la salida de audio",
+    "tecla_multimedia": "música/volumen", "reproducir_musica": "reproduce canciones en VLC",
+    "responder": "responde algo", "decir": "responde algo",
+}
+
+
+def lista_de_comandos():
+    """Todas tus frases tal como las escribiste, con lo que hace cada una."""
+    try:
+        comandos = nucleo.leer_comandos()
+    except Exception:
+        comandos = []
+    if not comandos:
+        return "Todavía no tenés comandos creados en Lynx (pestaña Comandos)."
+    lineas = []
+    for c in comandos:
+        que = TIPOS.get(c.get("tipo"), c.get("tipo", ""))
+        lineas.append(f"• {c.get('frase', '')}" + (f" ({que})" if que else ""))
+    return "Tus comandos (decí la frase tal cual):\n" + "\n".join(lineas)
+
+
+def parecidos(texto, comandos):
+    """Hasta 3 frases tuyas que se parecen a lo que escribiste (por si lo dijiste de otra forma)."""
+    frases = [c["frase"] for c in comandos]
+    palabras = set(texto.split())
+    puntaje = []
+    for f in frases:
+        sim = difflib.SequenceMatcher(None, texto, f).ratio()
+        comunes = len(palabras & set(f.split())) / max(1, len(set(f.split())))
+        puntaje.append((max(sim, comunes * 0.9), f))
+    return [f for p, f in sorted(puntaje, reverse=True)[:3] if p >= 0.5]
 
 
 # ------------------------------------------------------------------ datos de la PC
@@ -307,6 +343,8 @@ class Remoto(threading.Thread):
             return AYUDA
         if "bateria" in t:
             return bateria() or "No pude leer la batería."
+        if "comandos" in palabras or t in ("lista", "que puedo pedirte", "que comandos hay"):
+            return lista_de_comandos()
 
         habla_de_descarga = any(p in t for p in ("descarga", "bajando", "download"))
         cuando_termine = "cuando termin" in t or "cuando acab" in t or "cuando est" in t or "avisa" in t
@@ -330,7 +368,11 @@ class Remoto(threading.Thread):
             return self.estado_general()
         if motor is None:
             return "Lynx todavía está arrancando. Probá de nuevo en un momento."
-        return "No entendí eso. Escribí \"ayuda\" para ver qué puedo hacer."
+        cercanos = parecidos(t, motor.comandos)
+        if cercanos:
+            return ("No encontré ese comando. ¿Quisiste decir: " + " / ".join(f'"{c}"' for c in cercanos) +
+                    "?\nEscribí \"comandos\" para ver la lista completa.")
+        return "No entendí eso. Escribí \"comandos\" para ver qué le podés pedir, o \"ayuda\"."
 
     def _hacer(self, comando):
         motor = self._motor()
