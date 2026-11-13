@@ -72,6 +72,14 @@ Después de `crear_exe.bat`, ejecutá **`crear_instalador.bat`**. Arma `instalad
 en el menú Inicio, desinstalador y sin pedir permisos de administrador. No incluye tu configuración ni
 tus comandos: cada persona arma los suyos.
 
+## Control desde el celular (Telegram)
+
+En la pestaña **Celular** creás un bot propio con @BotFather, pegás su token y tu ID de Telegram, y desde
+el celular le preguntás a tu PC "cuánto va la descarga", "cuánta batería tengo", le pedís "apagá la PC
+cuando termine la descarga" (avisa y apaga con cuenta regresiva cancelable) o le mandás cualquiera de tus
+comandos. Solo obedece a tu cuenta; los mensajes de otras cuentas se ignoran. Usa internet únicamente para
+hablar con Telegram. El token queda en tu `config.json` (que no se sube a GitHub): no lo compartas.
+
 ## Versiones nuevas
 
 Lynx mira una vez al día (y al abrirse) si hay un *release* más nuevo en GitHub; si lo hay, la ventana de

@@ -22,6 +22,7 @@ from tkinter import messagebox
 import estilo
 import actualizar
 import nucleo
+import remoto
 from ventanas import Circulo, VentanaConfiguracion
 
 PUERTO = 47653  # solo sirve para detectar que ya hay otra copia abierta
@@ -66,6 +67,8 @@ class App:
         self.circulo = Circulo(self.raiz, self.config, self._estado_visible, self._nivel)
 
         self.arrancar_motor()
+        self.remoto = remoto.Remoto(self)  # control desde el celular (solo trabaja si lo activás)
+        self.remoto.start()
         self._crear_bandeja()
         threading.Thread(target=self._atender_otras_copias, args=(servidor,),
                          daemon=True).start()
@@ -256,6 +259,7 @@ class App:
         nucleo.log("Cerrando el asistente.")
         if self.motor is not None:
             self.motor.parar.set()
+        self.remoto.parar.set()
         if self.icono is not None:
             try:
                 self.icono.stop()

@@ -88,6 +88,10 @@ CONFIG_BASE = {
     "ganancia_auto": True,          # sube solo el volumen del micrófono cuando hablás lejos o bajito
     "activacion_estricta": True,    # el nombre solo vale si el modelo lo oye claro (evita activarse con otras palabras)
     "diagnostico_activacion": False, # anota en el registro todo lo que oye dormido (solo para buscar por qué no te detecta)
+    "telegram_activo": False,       # control remoto desde el celular por Telegram (ver remoto.py)
+    "telegram_token": "",           # el token que da @BotFather al crear tu bot
+    "telegram_usuario": 0,          # tu ID de Telegram: la única cuenta a la que obedece
+    "carpetas_descarga": [],        # dónde vigilar descargas ([] = la carpeta Descargas)
     "una_orden": True,              # True: después de cumplir una orden vuelve a dormirse (hay que llamarlo de nuevo)
     "buscar_actualizaciones": True, # una vez al día mira en GitHub si hay versión nueva (solo avisa)
     "salida_audio": None,           # None = salida predeterminada de Windows; o parte del nombre del dispositivo
@@ -594,6 +598,9 @@ class Motor(threading.Thread):
         self.voces = []              # nombres de las voces instaladas en Windows
         self.prueba_voz = None       # (nombre, velocidad) pedida desde la ventana
         self.prueba_personaje = False
+        self.cola_remota = queue.Queue()  # órdenes que llegan del celular (las ejecuta el hilo del motor)
+        self.mudo = False                 # mientras ejecuta una orden remota no habla en voz alta
+        self.ultima_respuesta = ""
         self.callback_config = None  # la aplicación se entera si un comando cambia la configuración
         self.comandos = []
         self.reco_comandos = None
@@ -751,6 +758,9 @@ class Motor(threading.Thread):
 
     def hablar(self, texto):
         log("[asistente]", texto)
+        if self.mudo:
+            self.ultima_respuesta = texto  # orden del celular: no se habla en la PC, se le devuelve el texto
+            return
         if self.config.get("responder_con_voz", True) and self.voz_activa is not None:
             self._decir(texto)
         else:
@@ -871,6 +881,31 @@ class Motor(threading.Thread):
         subprocess.Popen([vlc, archivo_lista], close_fds=True)
         log("[música]", len(lista), "canciones en VLC")
         self.hablar(respuesta)
+
+    def ejecutar_remoto(self, cmd, timeout=25):
+        """Lo llama el control remoto (otro hilo): el motor ejecuta el comando y devuelve lo que habría dicho."""
+        pedido = {"cmd": cmd, "hecho": threading.Event(), "respuesta": None}
+        self.cola_remota.put(pedido)
+        return pedido["respuesta"] if pedido["hecho"].wait(timeout) else None
+
+    def _atender_remoto(self):
+        while True:
+            try:
+                pedido = self.cola_remota.get_nowait()
+            except queue.Empty:
+                return
+            self.mudo, self.ultima_respuesta = True, ""
+            try:
+                log("[remoto] ejecutando:", pedido["cmd"].get("frase"))
+                self._ejecutar(pedido["cmd"])
+                pedido["respuesta"] = self.ultima_respuesta
+            except Exception as error:
+                log("[remoto] falló:", error)
+                pedido["respuesta"] = f"Falló: {error}"
+            finally:
+                self.mudo = False
+                self.estado = self._estado_de_reposo()
+                pedido["hecho"].set()
 
     def _ejecutar(self, cmd):
         tipo = cmd["tipo"]
@@ -1075,6 +1110,7 @@ class Motor(threading.Thread):
         return None
 
     def _una_vuelta(self, modelo, reco_dormido, reco_confirmar, activacion):
+        self._atender_remoto()
         if self.recargar.is_set():
             self.recargar.clear()
             self._preparar_comandos(modelo)

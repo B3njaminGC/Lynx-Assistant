@@ -8,7 +8,7 @@ import sys
 import urllib.request
 from collections import namedtuple
 
-VERSION = "1.2"
+VERSION = "1.3"
 REPO = "B3njaminGC/Lynx-Assistant"
 API = f"https://api.github.com/repos/{REPO}/releases/latest"
 NOMBRE_INSTALADOR = "Instalar-Lynx.exe"

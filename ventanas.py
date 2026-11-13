@@ -11,6 +11,7 @@ from tkinter import filedialog, messagebox, ttk
 
 import actualizar
 import estilo
+import remoto
 import importar
 import nucleo
 from configurar import TIPOS, Dialogo, valor_en_texto
@@ -177,6 +178,7 @@ class VentanaConfiguracion(tk.Toplevel):
         self._pestana_microfono(cuaderno)
         self._pestana_general(cuaderno)
         self._pestana_personaje(cuaderno)
+        self._pestana_celular(cuaderno)
 
         self._tic()
 
@@ -312,6 +314,97 @@ class VentanaConfiguracion(tk.Toplevel):
         self.barra_nivel.pack(anchor="w")
         ttk.Label(marco, text="Después de elegir otro micrófono, tocá \"Guardar cambios\".",
                   foreground=estilo.P["suave"]).pack(anchor="w", pady=(18, 0))
+
+    # ------------------------------------------------------------ celular (Telegram)
+
+    def _pestana_celular(self, cuaderno):
+        cfg = self.app.config
+        marco = ttk.Frame(cuaderno, padding=16)
+        cuaderno.add(marco, text="Celular")
+        self.var_tg_activo = tk.BooleanVar(value=bool(cfg.get("telegram_activo")))
+        self.var_tg_token = tk.StringVar(value=cfg.get("telegram_token") or "")
+        self.var_tg_usuario = tk.StringVar(value=str(cfg.get("telegram_usuario") or ""))
+        carpetas = cfg.get("carpetas_descarga") or []
+        self.var_tg_carpeta = tk.StringVar(value=carpetas[0] if carpetas else "")
+        self.var_tg_estado = tk.StringVar(value="")
+        self.var_tg_candidato = tk.StringVar(value="")
+        self.var_tg_prueba = tk.StringVar(value="")
+        self._candidato_mostrado = None
+        self._prueba_tg = None
+
+        ttk.Label(marco, text="Controlá tu PC desde el celular con un bot de Telegram propio. Preguntale "
+                              "\"cuánto va la descarga\", \"cuánta batería tengo\", pedile que la apague "
+                              "cuando termine, o mandale cualquiera de tus comandos.",
+                  wraplength=780, justify="left").pack(anchor="w")
+        ttk.Label(marco, text="Cómo se arma (2 minutos):", style="Seccion.TLabel").pack(anchor="w", pady=(12, 2))
+        ttk.Label(marco, wraplength=780, justify="left", text=(
+            "1. En Telegram buscá @BotFather, escribile /newbot y seguí los pasos. Te da un token (un texto largo).\n"
+            "2. Pegá el token acá abajo.\n"
+            "3. Desde tu Telegram, escribile \"hola\" a tu bot. Acá va a aparecer tu ID: tocá \"Usar este ID\".\n"
+            "4. Prendé el interruptor y tocá \"Guardar cambios\". Solo te va a obedecer a vos.")).pack(anchor="w")
+
+        estilo.interruptor(marco, text="Activar el control desde el celular",
+                           variable=self.var_tg_activo).pack(anchor="w", pady=(12, 6))
+
+        ttk.Label(marco, text="Token del bot (no se lo des a nadie):").pack(anchor="w")
+        ttk.Entry(marco, textvariable=self.var_tg_token, width=60, show="•").pack(anchor="w", pady=(0, 8))
+
+        ttk.Label(marco, text="Tu ID de Telegram (la única cuenta autorizada):").pack(anchor="w")
+        fila = ttk.Frame(marco)
+        fila.pack(anchor="w", pady=(0, 2))
+        ttk.Entry(fila, textvariable=self.var_tg_usuario, width=20).pack(side="left")
+        self.btn_candidato = ttk.Button(fila, text="Usar este ID", command=self._usar_candidato)
+        ttk.Label(marco, textvariable=self.var_tg_candidato, style="Suave.TLabel").pack(anchor="w")
+        self._fila_candidato = fila
+
+        ttk.Label(marco, text="Carpeta donde vigilar las descargas (vacío = Descargas):"
+                  ).pack(anchor="w", pady=(8, 0))
+        fila2 = ttk.Frame(marco)
+        fila2.pack(anchor="w", pady=(0, 8))
+        ttk.Entry(fila2, textvariable=self.var_tg_carpeta, width=52).pack(side="left")
+        ttk.Button(fila2, text="Elegir...", command=self._elegir_carpeta_descargas).pack(side="left", padx=(6, 0))
+
+        fila3 = ttk.Frame(marco)
+        fila3.pack(anchor="w", pady=(6, 0))
+        ttk.Button(fila3, text="Probar conexión", command=self._probar_telegram).pack(side="left")
+        ttk.Label(fila3, textvariable=self.var_tg_prueba).pack(side="left", padx=10)
+        ttk.Label(marco, textvariable=self.var_tg_estado, style="Suave.TLabel").pack(anchor="w", pady=(10, 0))
+
+    def _usar_candidato(self):
+        candidato = self.app.remoto.candidato
+        if candidato:
+            self.var_tg_usuario.set(str(candidato[0]))
+            self.var_tg_candidato.set("Listo: tocá \"Guardar cambios\" para autorizarte.")
+
+    def _elegir_carpeta_descargas(self):
+        ruta = filedialog.askdirectory(parent=self, title="Carpeta donde se guardan tus descargas")
+        if ruta:
+            self.var_tg_carpeta.set(ruta.replace("/", "\\"))
+
+    def _probar_telegram(self):
+        self.var_tg_prueba.set("Probando...")
+        token = self.var_tg_token.get().strip()
+        try:
+            usuario = int(self.var_tg_usuario.get().strip() or 0)
+        except ValueError:
+            usuario = 0
+        self._prueba_tg = {"texto": None}
+
+        def trabajo(destino=self._prueba_tg):
+            destino["texto"] = remoto.probar(token, usuario)
+
+        threading.Thread(target=trabajo, daemon=True).start()
+
+    def _estado_celular(self):
+        r = self.app.remoto
+        self.var_tg_estado.set("Estado: " + r.estado)
+        if r.candidato and r.candidato != self._candidato_mostrado:
+            self._candidato_mostrado = r.candidato
+            self.var_tg_candidato.set(f"Te escribió {r.candidato[1] or 'alguien'} (ID {r.candidato[0]}).")
+            self.btn_candidato.pack(side="left", padx=(8, 0))
+        if self._prueba_tg and self._prueba_tg["texto"] is not None:
+            self.var_tg_prueba.set(self._prueba_tg["texto"])
+            self._prueba_tg = None
 
     # ------------------------------------------------------------ voz de personaje
 
@@ -629,6 +722,15 @@ class VentanaConfiguracion(tk.Toplevel):
         nuevo["ganancia_auto"] = self.var_ganancia.get()
         nuevo["buscar_actualizaciones"] = self.var_actualiz.get()
         nuevo["diagnostico_activacion"] = self.var_diag.get()
+        nuevo["telegram_activo"] = self.var_tg_activo.get()
+        nuevo["telegram_token"] = self.var_tg_token.get().strip()
+        try:
+            nuevo["telegram_usuario"] = int(self.var_tg_usuario.get().strip() or 0)
+        except ValueError:
+            messagebox.showwarning("Celular", "Tu ID de Telegram tiene que ser un número.", parent=self)
+            return
+        carpeta = self.var_tg_carpeta.get().strip().strip('"')
+        nuevo["carpetas_descarga"] = [carpeta] if carpeta else []
         try:
             nuevo["segundos_atento"] = max(3, min(30, int(self.var_atento.get())))
         except (tk.TclError, ValueError):
@@ -679,6 +781,7 @@ class VentanaConfiguracion(tk.Toplevel):
             return
         motor = self.app.motor
         self._sincronizar_salida()
+        self._estado_celular()
         nueva = self.app.actualizacion
         if nueva and not self.aviso_version.winfo_ismapped():
             self.var_version.set("Hay una versión nueva: " + nueva.version)
