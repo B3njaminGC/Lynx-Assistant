@@ -1,19 +1,23 @@
-# Datos personales y generados al usar el asistente
-config.json
-comandos.json
-*.log
-audios/
-personajes/
-modelo-es/
-voces/
 
 # Construcción del .exe
-build/
-dist/
-*.spec
-icono.ico
-
-__pycache__/
+# Datos personales y generados al usar el asistente
+*.log
 *.pyc
-
+*.spec
 /instalador/
+__pycache__/
+audios/
+build/
+codigo-base*.zip
+codigo.anterior/
+codigo.fallido/
+codigo.nuevo/
+codigo/
+comandos.json
+config.json
+dist/
+icono.ico
+modelo-es/
+personajes/
+respaldos/
+voces/

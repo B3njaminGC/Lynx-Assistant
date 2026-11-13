@@ -41,7 +41,7 @@ if exist "icono.ico" set "ICONO=--icon icono.ico"
   --hidden-import win32com.client --hidden-import pythoncom --hidden-import pywintypes ^
   --hidden-import comtypes --hidden-import comtypes.client --hidden-import pystray._win32 --hidden-import PIL.ImageTk ^
   %EXTRA% ^
-  app.py
+  lanzador.py
 if errorlevel 1 goto fallo
 
 echo.

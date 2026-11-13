@@ -23,6 +23,7 @@ import estilo
 import actualizar
 import nucleo
 import remoto
+import respaldo
 from ventanas import Circulo, VentanaConfiguracion
 
 PUERTO = 47653  # solo sirve para detectar que ya hay otra copia abierta
@@ -59,6 +60,8 @@ class App:
         self.actualizacion = None  # actualizar.Nueva si hay una versión nueva
         self.estado_actualizacion = ""  # texto mientras se descarga/instala
         self.actualizando = False
+        self.buscar_ya = threading.Event()  # el botón "Buscar ahora" despierta la búsqueda
+        self.resultado_busqueda = ""
 
         self.raiz = tk.Tk()
         self.raiz.withdraw()
@@ -162,14 +165,19 @@ class App:
     # ------------------------------------------------------------ vida de la app
 
     def _buscar_actualizacion(self):
-        """Al arrancar y después una vez al día. Si no hay internet, no pasa nada."""
+        """Al arrancar y después una vez al día (o cuando lo pedís). Sin internet, no pasa nada."""
         while not self.saliendo:
-            if self.config.get("buscar_actualizaciones", True):
+            pedido = self.buscar_ya.is_set()
+            self.buscar_ya.clear()
+            if self.config.get("buscar_actualizaciones", True) or pedido:
                 hallada = actualizar.consultar()
                 if hallada and hallada != self.actualizacion:
                     self.actualizacion = hallada
                     nucleo.log("[versión nueva disponible]", hallada.version)
-            time.sleep(24 * 3600)
+                if pedido:
+                    self.resultado_busqueda = ("Hay una versión nueva: " + hallada.version if hallada
+                                               else "Estás al día (o no pude conectar).")
+            self.buscar_ya.wait(24 * 3600)
 
     def actualizar_ahora(self):
         """Baja el instalador nuevo, lo verifica y lo corre en silencio; Lynx se cierra y vuelve a abrir solo."""
@@ -178,15 +186,26 @@ class App:
         self.actualizando = True
         info = self.actualizacion
 
+        def progreso(prefijo):
+            return lambda f: setattr(self, "estado_actualizacion", f"{prefijo}: {int(f * 100)}%")
+
         def trabajo():
             try:
-                self.estado_actualizacion = "Descargando la versión " + info.version + "..."
-                ruta = actualizar.descargar_instalador(
-                    info, lambda f: setattr(self, "estado_actualizacion",
-                                            f"Descargando la versión {info.version}: {int(f * 100)}%"))
-                self.estado_actualizacion = "Instalando... Lynx se va a reiniciar solo."
-                nucleo.log("[actualización] instalando", info.version)
-                actualizar.lanzar_instalador(ruta)
+                if actualizar.puede_aplicar_parche(info):
+                    self.estado_actualizacion = "Descargando la versión " + info.version + "..."
+                    actualizar.preparar_parche(info, nucleo.BASE, progreso(f"Descargando la versión {info.version}"))
+                    respaldo.copia_automatica("antes-de-actualizar")  # tus comandos y configuración, por las dudas
+                    actualizar.activar_parche(nucleo.BASE)
+                    self.estado_actualizacion = "Listo. Lynx se reinicia solo..."
+                    nucleo.log("[actualización] parche de código aplicado:", info.version)
+                    actualizar.reiniciar_programa()
+                else:
+                    self.estado_actualizacion = "Descargando la versión " + info.version + "..."
+                    ruta = actualizar.descargar_instalador(info, progreso(f"Descargando la versión {info.version}"))
+                    respaldo.copia_automatica("antes-de-actualizar")
+                    self.estado_actualizacion = "Instalando... Lynx se va a reiniciar solo."
+                    nucleo.log("[actualización] instalando", info.version)
+                    actualizar.lanzar_instalador(ruta)
                 time.sleep(1.5)
                 self.cola_ui.put("salir")
             except Exception as error:
@@ -282,6 +301,7 @@ class App:
 
 def main():
     nucleo.iniciar_log()
+    respaldo.copia_diaria()  # una copia de tus comandos y configuración por día (quedan las últimas 10)
     try:
         import ctypes
         ctypes.windll.shcore.SetProcessDpiAwareness(1)  # círculo nítido y bien ubicado en pantallas HiDPI

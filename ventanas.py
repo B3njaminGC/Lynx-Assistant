@@ -12,6 +12,7 @@ from tkinter import filedialog, messagebox, ttk
 import actualizar
 import estilo
 import remoto
+import respaldo
 import importar
 import nucleo
 from configurar import TIPOS, Dialogo, valor_en_texto
@@ -179,6 +180,7 @@ class VentanaConfiguracion(tk.Toplevel):
         self._pestana_general(cuaderno)
         self._pestana_personaje(cuaderno)
         self._pestana_celular(cuaderno)
+        self._pestana_respaldo(cuaderno)
 
         self._tic()
 
@@ -314,6 +316,86 @@ class VentanaConfiguracion(tk.Toplevel):
         self.barra_nivel.pack(anchor="w")
         ttk.Label(marco, text="Después de elegir otro micrófono, tocá \"Guardar cambios\".",
                   foreground=estilo.P["suave"]).pack(anchor="w", pady=(18, 0))
+
+    # ------------------------------------------------------------ respaldo y versión
+
+    def _pestana_respaldo(self, cuaderno):
+        marco = ttk.Frame(cuaderno, padding=16)
+        cuaderno.add(marco, text="Respaldo")
+        self.var_busqueda = tk.StringVar(value="")
+        ttk.Label(marco, text="Copia de seguridad", style="Seccion.TLabel").pack(anchor="w")
+        ttk.Label(marco, wraplength=780, justify="left", text=(
+            "Guardá tus comandos y tu configuración en un archivo para tenerlos a salvo, pasarlos a otra PC "
+            "o recuperarlos si algo sale mal. El archivo no incluye el token de Telegram ni las voces de "
+            "personaje. Además, Lynx hace solo una copia por día y antes de cada actualización "
+            "(quedan las últimas 10).")).pack(anchor="w", pady=(4, 10))
+        fila = ttk.Frame(marco)
+        fila.pack(anchor="w")
+        ttk.Button(fila, text="Guardar copia...", command=self._exportar).pack(side="left")
+        ttk.Button(fila, text="Restaurar copia...", command=self._restaurar).pack(side="left", padx=8)
+        ttk.Button(fila, text="Abrir copias automáticas", command=self._abrir_respaldos).pack(side="left")
+
+        ttk.Label(marco, text="Versión", style="Seccion.TLabel").pack(anchor="w", pady=(24, 0))
+        ttk.Label(marco, text="Estás usando la versión " + actualizar.VERSION + ".").pack(anchor="w", pady=(4, 6))
+        fila2 = ttk.Frame(marco)
+        fila2.pack(anchor="w")
+        ttk.Button(fila2, text="Buscar actualizaciones ahora", command=self._buscar_ahora).pack(side="left")
+        ttk.Label(fila2, textvariable=self.var_busqueda).pack(side="left", padx=10)
+
+    def _exportar(self):
+        from datetime import datetime
+        destino = filedialog.asksaveasfilename(
+            parent=self, title="Guardar copia de seguridad", defaultextension=".zip",
+            initialfile=f"lynx-respaldo-{datetime.now():%Y-%m-%d}.zip", filetypes=[("Respaldo de Lynx", "*.zip")])
+        if not destino:
+            return
+        try:
+            cantidad = respaldo.exportar(destino)
+        except OSError as error:
+            messagebox.showerror("Respaldo", f"No pude guardar el archivo: {error}", parent=self)
+            return
+        messagebox.showinfo("Respaldo", f"Listo: guardé {cantidad} comandos y tu configuración en:\n{destino}",
+                            parent=self)
+
+    def _restaurar(self):
+        ruta = filedialog.askopenfilename(parent=self, title="Elegí la copia de seguridad",
+                                          filetypes=[("Respaldo de Lynx", "*.zip")])
+        if not ruta:
+            return
+        try:
+            comandos, _ = respaldo.leer_respaldo(ruta)
+        except respaldo.ErrorRespaldo as error:
+            messagebox.showerror("Respaldo", str(error), parent=self)
+            return
+        if not messagebox.askyesno(
+                "Restaurar copia",
+                f"Esa copia tiene {len(comandos)} comandos.\n\nVa a reemplazar tus comandos y tu configuración "
+                "actuales. Antes guardo una copia de lo que tenés ahora, así podés volver atrás.\n\n¿Seguimos?",
+                parent=self):
+            return
+        try:
+            cantidad, nueva = respaldo.restaurar(ruta, self.app.config)
+            self.app.aplicar_config(nueva)
+            if self.app.motor is not None:
+                self.app.motor.recargar.set()
+        except Exception as error:
+            messagebox.showerror("Respaldo", f"No pude restaurar: {error}", parent=self)
+            return
+        messagebox.showinfo("Respaldo", f"Listo: recuperé {cantidad} comandos y tu configuración.\n"
+                                        "Se cierra esta ventana; abrila de nuevo para verlos.", parent=self)
+        self.cerrar()
+
+    def _abrir_respaldos(self):
+        respaldo.CARPETA_RESPALDOS.mkdir(parents=True, exist_ok=True)
+        try:
+            os.startfile(respaldo.CARPETA_RESPALDOS)
+        except (AttributeError, OSError):
+            messagebox.showinfo("Respaldo", f"Las copias están en:\n{respaldo.CARPETA_RESPALDOS}", parent=self)
+
+    def _buscar_ahora(self):
+        self.var_busqueda.set("Buscando...")
+        self.app.resultado_busqueda = ""
+        self.app.buscar_ya.set()
 
     # ------------------------------------------------------------ celular (Telegram)
 
@@ -762,7 +844,7 @@ class VentanaConfiguracion(tk.Toplevel):
         nueva = self.app.actualizacion
         if not nueva:
             return
-        if actualizar.esta_instalado() and nueva.descarga:
+        if actualizar.esta_instalado() and (nueva.descarga or actualizar.puede_aplicar_parche(nueva)):
             self.app.actualizar_ahora()  # se baja, se verifica e instala solo; tus datos quedan como están
         else:
             webbrowser.open(nueva.enlace)
@@ -782,10 +864,12 @@ class VentanaConfiguracion(tk.Toplevel):
         motor = self.app.motor
         self._sincronizar_salida()
         self._estado_celular()
+        if self.app.resultado_busqueda:
+            self.var_busqueda.set(self.app.resultado_busqueda)
         nueva = self.app.actualizacion
         if nueva and not self.aviso_version.winfo_ismapped():
             self.var_version.set("Hay una versión nueva: " + nueva.version)
-            if actualizar.esta_instalado() and nueva.descarga:
+            if actualizar.esta_instalado() and (nueva.descarga or actualizar.puede_aplicar_parche(nueva)):
                 self.btn_version.config(text="Actualizar ahora")
             self.aviso_version.pack(side="right")
         if nueva and self.app.estado_actualizacion:

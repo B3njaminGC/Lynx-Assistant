@@ -101,3 +101,8 @@ Para sacar una versión: subí el número `VERSION` en `actualizar.py`, corré `
 ## Licencia
 
 [MIT](LICENSE). Vosk, Applio y los modelos de voz tienen sus propias licencias.
+
+## Copias de seguridad y actualizaciones por parche
+- Pestaña **Respaldo**: guardar/restaurar todos tus comandos y ajustes (el token de Telegram no se exporta). Se hace además una copia automática por día en `respaldos\`.
+- Actualizaciones chicas: `python empaquetar.py` genera `codigo-base1.zip`; se sube a un release (tag `v1.4` o mayor) con ese nombre exacto y el programa instalado lo aplica sin reinstalar.
+- Cambios grandes (nuevas librerías): hay que rehacer `crear_exe.bat` + `crear_instalador.bat`.
