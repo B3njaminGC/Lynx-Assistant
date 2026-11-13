@@ -16,7 +16,9 @@ reacciona a tu voz.
 - **Importar voces desde la app**: pegás el link de una voz (Hugging Face, voice-models.com...) o
   elegís un `.zip` que ya bajaste.
 - **Elegir por dónde habla**: parlantes o auriculares, también por voz ("Lynx, habla por los auriculares").
-- Tema oscuro, ícono en la bandeja, inicio automático con Windows y creación de un `.exe`.
+- **Control desde el celular** por Telegram (batería, descargas, apagar al terminar, tus comandos).
+- **Respaldo** de tus comandos y ajustes con un clic, y **actualizaciones** desde la propia app.
+- Tema oscuro, ícono en la bandeja, inicio automático con Windows, `.exe` e instalador.
 
 ## Requisitos
 
@@ -46,6 +48,7 @@ y desde ahí los editás en la pestaña **Comandos**.
 | Abrir página web | Abre un link en tu navegador |
 | Apagar la PC | Apaga la computadora (siempre pide confirmación si lo marcás) |
 | Cambiar salida de audio | Cambia el dispositivo por el que habla el asistente |
+| Reproducir música (VLC) | Reproduce canciones o carpetas enteras con VLC |
 | Música y volumen | Pista siguiente/anterior, pausa, subir/bajar volumen, silenciar (funciona con Spotify, YouTube y casi cualquier reproductor) |
 
 ## Voz de personaje (opcional)
@@ -80,12 +83,25 @@ cuando termine la descarga" (avisa y apaga con cuenta regresiva cancelable) o le
 comandos. Solo obedece a tu cuenta; los mensajes de otras cuentas se ignoran. Usa internet únicamente para
 hablar con Telegram. El token queda en tu `config.json` (que no se sube a GitHub): no lo compartas.
 
+## Copias de seguridad
+
+En la pestaña **Respaldo** guardás y restaurás todos tus comandos y ajustes (el token de Telegram no se
+exporta). Además Lynx hace una copia automática por día en `respaldos\` (guarda las últimas 10) y otra
+antes de cada actualización. Al restaurar, primero se guarda lo que tenías.
+
 ## Versiones nuevas
 
 Lynx mira una vez al día (y al abrirse) si hay un *release* más nuevo en GitHub; si lo hay, la ventana de
 configuración muestra un botón "Descargar". Si Lynx está instalado con `Instalar-Lynx.exe`, el botón dice "Actualizar ahora": baja el instalador del release, comprueba su SHA-256 y se reinstala en silencio, conservando tu configuración y tus comandos. Nunca instala nada sin que toques el botón, y el aviso se apaga desde la pestaña General.
 Para sacar una versión: subí el número `VERSION` en `actualizar.py`, corré `crear_exe.bat` y
 `crear_instalador.bat`, y publicá un release (con la etiqueta `v` + el número) con `Instalar-Lynx.exe` adjunto (con ese nombre exacto).
+
+### Actualizaciones por parche (sin reinstalar)
+
+Para cambios chicos de código: `python empaquetar.py` genera `codigo-base1.zip` y su suma de control.
+Subilo a un release (etiqueta `v` + número, por ejemplo `v1.5`) con ese nombre exacto, y la app instalada
+lo aplica sola cuando tocás "Actualizar ahora". Si el parche falla al arrancar, vuelve a la versión
+anterior. Si el cambio suma librerías nuevas, hace falta un release completo con `Instalar-Lynx.exe`.
 
 ## Estructura
 
@@ -97,12 +113,12 @@ Para sacar una versión: subí el número `VERSION` en `actualizar.py`, corré `
 | `importar.py` | Descarga e importación de voces |
 | `ventanas.py`, `configurar.py` | Ventana de configuración y círculo animado |
 | `estilo.py` | Tema oscuro e ícono |
+| `remoto.py` | Control desde el celular (Telegram) |
+| `respaldo.py` | Exportar, restaurar y copias automáticas |
+| `actualizar.py` | Buscar e instalar versiones nuevas |
+| `lanzador.py`, `empaquetar.py` | Arranque del `.exe` y armado de parches |
+| `lynx.iss` | Receta del instalador (Inno Setup) |
 
 ## Licencia
 
 [MIT](LICENSE). Vosk, Applio y los modelos de voz tienen sus propias licencias.
-
-## Copias de seguridad y actualizaciones por parche
-- Pestaña **Respaldo**: guardar/restaurar todos tus comandos y ajustes (el token de Telegram no se exporta). Se hace además una copia automática por día en `respaldos\`.
-- Actualizaciones chicas: `python empaquetar.py` genera `codigo-base1.zip`; se sube a un release (tag `v1.4` o mayor) con ese nombre exacto y el programa instalado lo aplica sin reinstalar.
-- Cambios grandes (nuevas librerías): hay que rehacer `crear_exe.bat` + `crear_instalador.bat`.
