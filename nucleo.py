@@ -18,6 +18,8 @@ from array import array
 from pathlib import Path
 
 from personajes import Personajes, escribir_lista, guion_voz_base
+import clic
+import teclas
 
 
 def carpeta_base():
@@ -111,6 +113,8 @@ RESPUESTAS_POR_DEFECTO = {
     "cambiar_salida": "Listo, ahora hablo por acá.",
     "tecla_multimedia": "Listo.",
     "reproducir_musica": "Poniendo música.",
+    "hacer_clic": "",
+    "enviar_teclas": "",   # en un juego conviene que no hable: solo habla si le ponés una respuesta
 }
 
 # Teclas multimedia de Windows: (código de tecla, cuántas veces se aprieta).
@@ -710,7 +714,8 @@ class Motor(threading.Thread):
         frases = list(FRASES_FIJAS)
         for cmd in self.comandos:
             frase = (cmd.get("respuesta") or "").strip() or RESPUESTAS_POR_DEFECTO.get(cmd.get("tipo"), "Listo.")
-            frases.append(frase)
+            if frase:
+                frases.append(frase)
         vistas, resultado = set(), []
         for f in frases:
             if f not in vistas:
@@ -942,6 +947,14 @@ class Motor(threading.Thread):
         elif tipo == "tecla_multimedia":
             self._tecla_multimedia(valor)
             self.hablar(respuesta)
+        elif tipo == "hacer_clic":
+            clic.hacer_clic(valor)
+            if respuesta:
+                self.hablar(respuesta)
+        elif tipo == "enviar_teclas":
+            teclas.pulsar(valor)
+            if respuesta:
+                self.hablar(respuesta)
         elif tipo == "apagar":
             self.hablar(respuesta)
             self._correr(["shutdown", "/s", "/t", "0"])

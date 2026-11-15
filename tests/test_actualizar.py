@@ -47,7 +47,7 @@ def consultar(datos):
 
 
 def test_comparacion_de_versiones():
-    assert a.es_mas_nueva("v1.5") and a.es_mas_nueva("2.0.1")
+    assert a.es_mas_nueva("v99.0") and a.es_mas_nueva("100.0.1")
     assert not a.es_mas_nueva(a.VERSION)
     assert not a.es_mas_nueva("basura")
 

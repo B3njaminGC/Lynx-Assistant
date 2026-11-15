@@ -20,7 +20,7 @@ import zipfile
 from collections import namedtuple
 from pathlib import Path
 
-VERSION = "1.4"
+VERSION = "1.5"
 REPO = "B3njaminGC/Lynx-Assistant"
 API = f"https://api.github.com/repos/{REPO}/releases/latest"
 NOMBRE_INSTALADOR = "Instalar-Lynx.exe"

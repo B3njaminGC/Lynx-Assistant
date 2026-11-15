@@ -7,6 +7,9 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
+import clic
+import teclas
+
 ARCHIVO = Path(__file__).resolve().parent / "comandos.json"
 
 TIPOS = {
@@ -18,6 +21,8 @@ TIPOS = {
     "cambiar_salida": "Cambiar salida de audio",
     "tecla_multimedia": "Música y volumen (pista, pausa, volumen)",
     "reproducir_musica": "Reproducir canciones en VLC",
+    "enviar_teclas": "Apretar teclas (para juegos y programas)",
+    "hacer_clic": "Hacer clic en un lugar de la pantalla (ej: botón JUGAR)",
 }
 # Opciones de la acción de música y volumen: nombre que se muestra -> clave que guarda el comando.
 MULTIMEDIA = {
@@ -41,6 +46,8 @@ VALOR_AYUDA = {
     "cambiar_salida": "Nombre (o parte) del dispositivo de sonido (ej: Speaker (Realtek):",
     "reproducir_musica": "Canciones o carpetas a reproducir, una por línea (usá los botones de abajo):",
     "tecla_multimedia": "Qué hacer (funciona con Spotify, YouTube y casi cualquier reproductor):",
+    "enviar_teclas": "Teclas a apretar, una combinación por línea (ej: enter  o  ctrl+shift+m):",
+    "hacer_clic": "Dónde hacer clic: tocá Marcar y poné el mouse sobre el botón durante 5 segundos:",
 }
 CONFIRMAR_POR_DEFECTO = {"cerrar_programa", "cerrar_varios", "apagar"}
 
@@ -65,6 +72,8 @@ def guardar(comandos):
 
 
 def valor_en_texto(valor):
+    if isinstance(valor, dict):
+        return clic.en_texto(valor)
     return ", ".join(valor) if isinstance(valor, list) else valor
 
 
@@ -115,6 +124,9 @@ class Dialogo(tk.Toplevel):
         self.txt_valor = tk.Text(self.fila_valor, width=38, height=5)
         self.btn_canciones = ttk.Button(self.fila_valor, text="Agregar canciones...", command=self.agregar_canciones)
         self.btn_carpeta = ttk.Button(self.fila_valor, text="Agregar carpeta...", command=self.agregar_carpeta)
+        self.posicion = None
+        self.btn_marcar = ttk.Button(self.fila_valor, text="Marcar posición...", command=self.marcar_posicion)
+        self.lbl_posicion = ttk.Label(self.fila_valor, text="")
         self.combo_multimedia = ttk.Combobox(self.fila_valor, values=list(MULTIMEDIA), state="readonly",
                                              width=38)
 
@@ -136,6 +148,11 @@ class Dialogo(tk.Toplevel):
             valor = cmd.get("valor", "")
             if isinstance(valor, list):
                 self.txt_valor.insert("1.0", "\n".join(valor))
+            elif cmd["tipo"] == "enviar_teclas":
+                self.txt_valor.insert("1.0", valor)
+            elif cmd["tipo"] == "hacer_clic":
+                self.posicion = dict(valor)
+                self.lbl_posicion.config(text="Posición guardada: " + clic.en_texto(valor))
             elif cmd["tipo"] == "tecla_multimedia":
                 self.combo_multimedia.set(MULTIMEDIA_POR_CLAVE.get(valor, ""))
             else:
@@ -152,9 +169,15 @@ class Dialogo(tk.Toplevel):
         tipo = self.tipo_actual()
         self.lbl_valor.config(text=VALOR_AYUDA[tipo])
         for w in (self.ent_valor, self.btn_buscar, self.txt_valor, self.combo_multimedia,
-                  self.btn_canciones, self.btn_carpeta):
+                  self.btn_canciones, self.btn_carpeta, self.btn_marcar, self.lbl_posicion):
             w.grid_forget()
-        if tipo == "cerrar_varios":
+        if tipo == "hacer_clic":
+            self.btn_marcar.grid(row=0, column=0, sticky="w")
+            self.lbl_posicion.grid(row=1, column=0, sticky="w", pady=(6, 0))
+            if es_cambio_del_usuario:
+                self.var_confirmar.set(False)
+            return
+        if tipo in ("cerrar_varios", "enviar_teclas"):
             self.txt_valor.grid(row=0, column=0)
         elif tipo == "reproducir_musica":
             self.txt_valor.grid(row=0, column=0, columnspan=2)
@@ -170,6 +193,20 @@ class Dialogo(tk.Toplevel):
                 self.btn_buscar.grid(row=0, column=1, padx=(6, 0))
         if es_cambio_del_usuario:
             self.var_confirmar.set(tipo in CONFIRMAR_POR_DEFECTO)
+
+    def marcar_posicion(self, restantes=5):
+        """Cuenta regresiva para que lleves el mouse al botón; después anota dónde quedó."""
+        if restantes > 0:
+            self.lbl_posicion.config(text=f"Poné el mouse sobre el botón... {restantes}")
+            self.after(1000, lambda: self.marcar_posicion(restantes - 1))
+            return
+        try:
+            self.posicion = clic.marcar_posicion()
+        except Exception as error:
+            self.lbl_posicion.config(text="No pude leer el mouse.")
+            messagebox.showwarning("No pude marcarlo", str(error), parent=self)
+            return
+        self.lbl_posicion.config(text="Posición guardada: " + clic.en_texto(self.posicion))
 
     def _agregar_lineas(self, rutas):
         actual = self.txt_valor.get("1.0", "end").strip()
@@ -210,6 +247,19 @@ class Dialogo(tk.Toplevel):
             valor = MULTIMEDIA.get(self.combo_multimedia.get(), "")
         elif tipo == "reproducir_musica":
             valor = [l.strip().strip('"') for l in self.txt_valor.get("1.0", "end").splitlines() if l.strip()]
+        elif tipo == "hacer_clic":
+            if not self.posicion:
+                messagebox.showwarning("Falta algo", "Tocá Marcar posición y poné el mouse sobre el botón.",
+                                       parent=self)
+                return
+            valor = dict(self.posicion, volver=True)
+        elif tipo == "enviar_teclas":
+            valor = [l.strip() for l in self.txt_valor.get("1.0", "end").splitlines() if l.strip()]
+            try:
+                teclas.analizar(valor)
+            except teclas.ErrorTecla as error:
+                messagebox.showwarning("Revisá las teclas", str(error), parent=self)
+                return
         elif tipo == "cerrar_varios":
             lineas = [l.strip() for l in self.txt_valor.get("1.0", "end").splitlines() if l.strip()]
             valor = [l if l.lower().endswith(".exe") else l + ".exe" for l in lineas]

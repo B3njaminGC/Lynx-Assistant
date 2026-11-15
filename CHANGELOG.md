@@ -2,6 +2,14 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.5] — 2026-11-15
+### Agregado
+- Acción **Apretar teclas**: pulsa teclas o atajos (`enter`, `ctrl+shift+m`...) con códigos físicos de teclado,
+  pensada para juegos.
+- Acción **Hacer clic**: hace clic en un lugar de la pantalla que se marca desde la ventana (por ejemplo el botón
+  JUGAR); la posición se guarda como fracción de la pantalla y funciona con dos monitores.
+- Estos comandos no hablan por defecto, para no tapar el audio del juego.
+
 ## [1.4] — 2026-11-13
 ### Agregado
 - Control desde el celular por Telegram: batería, progreso de descargas, "avisame / apagá cuando termine" (con

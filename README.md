@@ -59,8 +59,24 @@ ahí los editás en la pestaña **Comandos**.
 | Abrir página web | Abre un link en tu navegador |
 | Apagar la PC | Apaga la computadora (siempre pide confirmación si lo marcás) |
 | Cambiar salida de audio | Cambia el dispositivo por el que habla el asistente |
+| Apretar teclas | Aprieta una tecla o un atajo (`enter`, `ctrl+shift+m`, `w`...), también dentro de juegos |
+| Hacer clic | Hace clic en un lugar de la pantalla que marcás vos (por ejemplo el botón JUGAR de un juego) |
 | Reproducir música (VLC) | Reproduce canciones o carpetas enteras con VLC |
 | Música y volumen | Pista siguiente/anterior, pausa, subir/bajar volumen, silenciar (funciona con Spotify, YouTube y casi cualquier reproductor) |
+
+### Comandos dentro de un juego
+
+Con **Apretar teclas** y **Hacer clic** podés decir, por ejemplo, "todo listo" y que Lynx haga clic en el botón
+JUGAR. En la ventana de comandos, el clic se marca llevando el mouse al botón durante 5 segundos; se guarda como
+posición relativa a la pantalla, así que sigue funcionando si cambiás la resolución. Por defecto estos comandos no
+hablan, para no pisar el audio del juego (podés ponerles una respuesta si querés).
+
+Algunas advertencias:
+- El juego tiene que estar en pantalla y con el mismo menú de siempre: si el botón cambia de lugar, hay que volver a marcarlo.
+- Si el juego se abre como administrador, Lynx también tiene que abrirse como administrador.
+- Los juegos con anticheat (por ejemplo Fortnite con Easy Anti-Cheat) pueden ignorar o rechazar teclas y clics
+  simulados. Probalo con cuidado y revisá las reglas del juego: usalo solo para comodidades de menú, nunca para
+  ventajas en la partida.
 
 ## Voz de personaje (opcional)
 
