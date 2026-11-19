@@ -23,9 +23,9 @@ _BORRAR = re.compile(r"^(borra|borrame|borrar|elimina|eliminame|eliminar|quita|q
                      r"( el| un)? pendientes?( (?P<texto>.+))?$")
 _POSPONER = re.compile(r"^(pospone|posponeme|posponer|atrasa|atrasame)( el pendiente)?( (?P<resto>.+))?$")
 _TERMINAR = re.compile(r"^(ya )?(termine|terminamos|hice|complete|resolvi|cumpli|finalice)"
-                       r"( con)?( el pendiente)?( (?P<texto>.+))?$")
+                       r"( con)?( (el|un) pendiente)?( (?P<texto>.+))?$")
 _MARCAR = re.compile(r"^(marca|marcame|tacha|tachame)( como)? (hecho|hecha|terminado|terminada|listo|lista)"
-                     r"( el pendiente)?( (?P<texto>.+))?$")
+                     r"( (el|un) pendiente)?( (?P<texto>.+))?$")
 _LISTAR = re.compile(r"^(que (tengo|me queda|me falta|pendientes)|cuales son (mis|los) pendientes|mis pendientes|"
                      r"los pendientes|(leeme|lee|decime|dime|repetime|repeti|repite|recordame) (mis |los )?pendientes)")
 
@@ -163,4 +163,10 @@ def frases_de_lectura(items):
 
 
 # Frases que se pueden decir con Lynx ya despierto (las entiende el reconocedor de frases fijas).
-FRASES_FIJAS_DE_VOZ = ["que tengo pendiente", "que pendientes tengo", "mis pendientes", "leeme mis pendientes"]
+FRASES_FIJAS_DE_VOZ = (
+    ["que tengo pendiente", "que pendientes tengo", "mis pendientes", "leeme mis pendientes",
+     "agrega un pendiente", "anota un pendiente", "agrega pendiente", "termine un pendiente",
+     "borra un pendiente", "borra pendiente"]
+    + [f"termine el {n}" for n in _ORDINALES]
+    + [f"borra el pendiente {n}" for n in _ORDINALES]
+)

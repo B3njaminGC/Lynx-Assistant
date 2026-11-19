@@ -8,7 +8,7 @@ Función "pendientes al arrancar" de Lynx. Esta página explica cómo está arma
 | --- | --- | --- |
 | 1 | Archivo de pendientes y parser de órdenes | hecha |
 | 2 | Lectura al arrancar y "qué tengo pendiente" | hecha |
-| 3 | Agregar, terminar y borrar por voz | pendiente |
+| 3 | Agregar, terminar y borrar por voz | hecha |
 | 4 | Modo insistente y posponer | pendiente |
 | 5 | Pestaña "Pendientes", respaldo, versión 1.6 | pendiente |
 
@@ -21,6 +21,12 @@ Función "pendientes al arrancar" de Lynx. Esta página explica cómo está arma
   pendiente". No habla si Lynx está despierto, pausado o respondiendo al celular. Sin pendientes, al arrancar calla.
 - Las frases fijas ("Tenés estos pendientes.") se pueden preparar con la voz de personaje; el texto de cada pendiente
   siempre suena con una voz de Windows (la de personaje solo sabe frases ya preparadas).
+- Mientras Lynx está despierto solo entiende frases fijas, así que el texto libre se pide en dos pasos: decís
+  "agregá un pendiente", Lynx pregunta "¿Qué anoto?" y entonces dictás (usa el reconocedor libre). Si decís todo
+  junto ("Lynx, agregá pendiente comprar pan") lo toma de una. Para terminar o borrar lo más seguro es el número
+  ("terminé el dos") después de que Lynx los leyó.
+- Si dos pendientes se parecen, Lynx los dice numerados y pregunta cuál; si no queda claro, no toca nada.
+  Borrar siempre pide confirmación (sí/no). Por Telegram no pregunta: el texto va en el mismo mensaje.
 - Lo que dijiste tiene prioridad: tus comandos de `comandos.json` se prueban primero; los pendientes solo
   responden si ninguno coincide.
 - `tests/test_pendientes*.py`: pruebas de cada parte.

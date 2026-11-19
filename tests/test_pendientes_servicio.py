@@ -15,6 +15,14 @@ class MotorFalso:
         self.pausado = threading.Event()
         self.voz_activa = object()
         self.dicho = []
+        self.respuestas = []      # lo que "dictás" cuando Lynx pregunta (en orden)
+        self.dice_si = True
+
+    def escuchar_libre(self):
+        return self.respuestas.pop(0) if self.respuestas else ""
+
+    def confirmar_si_no(self):
+        return self.dice_si
 
     def hablar(self, texto):
         self.dicho.append(("fija", texto))
@@ -145,7 +153,108 @@ def test_pedido_explicito_sin_pendientes_avisa(tmp_path):
     assert motor.dicho == [("fija", "No tenés pendientes.")]
 
 
-def test_frases_de_la_gramatica_se_interpretan_como_listar():
+def test_todas_las_frases_de_la_gramatica_se_interpretan():
     for frase in pendientes_voz.FRASES_FIJAS_DE_VOZ:
-        orden = pendientes_voz.interpretar(frase)
-        assert orden is not None and orden.accion == "listar", frase
+        assert pendientes_voz.interpretar(frase) is not None, frase
+
+
+def textos(motor):
+    return [t for _, t in motor.dicho]
+
+
+def test_agregar_con_texto_en_la_misma_frase(tmp_path):
+    motor, lista, reloj, serv = armar(tmp_path)
+    assert serv.atender("agrega pendiente comprar pan")
+    assert [i["texto"] for i in lista.abiertos()] == ["comprar pan"]
+    assert "Anotado." in textos(motor)
+
+
+def test_agregar_sin_texto_pregunta_y_dicta(tmp_path):
+    motor, lista, reloj, serv = armar(tmp_path)
+    motor.respuestas = ["llamar al medico"]
+    serv.atender("agrega un pendiente")
+    assert "¿Qué anoto?" in textos(motor)
+    assert lista.abiertos()[0]["texto"] == "llamar al medico"
+
+
+def test_agregar_sin_texto_y_sin_dictado_no_anota(tmp_path):
+    motor, lista, reloj, serv = armar(tmp_path)
+    serv.atender("agrega un pendiente")
+    assert lista.abiertos() == []
+    assert "No te escuché." in textos(motor)
+
+
+def test_agregar_repetido_avisa(tmp_path):
+    motor, lista, reloj, serv = armar(tmp_path, ["comprar pan"])
+    serv.atender("agrega pendiente comprar pan")
+    assert "Ya lo tenías anotado." in textos(motor)
+    assert len(lista.abiertos()) == 1
+
+
+def test_terminar_por_texto(tmp_path):
+    motor, lista, reloj, serv = armar(tmp_path, ["comprar pan", "llamar al medico"])
+    serv.atender("termine comprar pan")
+    assert [i["texto"] for i in lista.abiertos()] == ["llamar al medico"]
+
+
+def test_terminar_por_numero_despues_de_leer(tmp_path):
+    motor, lista, reloj, serv = armar(tmp_path, ["comprar pan", "llamar al medico"])
+    serv.atender("que tengo pendiente")
+    serv.atender("termine el dos")
+    assert [i["texto"] for i in lista.abiertos()] == ["comprar pan"]
+
+
+def test_terminar_que_no_existe_no_toca_nada(tmp_path):
+    motor, lista, reloj, serv = armar(tmp_path, ["comprar pan"])
+    serv.atender("termine sacar la basura")
+    assert len(lista.abiertos()) == 1
+    assert "No encontré ese pendiente." in textos(motor)
+
+
+def test_terminar_con_dudas_pregunta_cual(tmp_path):
+    motor, lista, reloj, serv = armar(tmp_path, ["llamar a Juan", "llamar a Pedro"])
+    motor.respuestas = ["el dos"]
+    serv.atender("termine llamar")
+    assert [i["texto"] for i in lista.abiertos()] == ["llamar a Juan"]
+    assert "Hay varios parecidos. ¿Cuál?" in textos(motor)
+
+
+def test_terminar_con_dudas_sin_respuesta_no_toca_nada(tmp_path):
+    motor, lista, reloj, serv = armar(tmp_path, ["llamar a Juan", "llamar a Pedro"])
+    serv.atender("termine llamar")
+    assert len(lista.abiertos()) == 2
+    assert "No pude decidir, no toqué nada." in textos(motor)
+
+
+def test_terminar_sin_texto_pregunta(tmp_path):
+    motor, lista, reloj, serv = armar(tmp_path, ["comprar pan"])
+    motor.respuestas = ["comprar pan"]
+    serv.atender("termine un pendiente")
+    assert lista.abiertos() == []
+
+
+def test_borrar_pide_confirmacion(tmp_path):
+    motor, lista, reloj, serv = armar(tmp_path, ["comprar pan"])
+    motor.dice_si = False
+    serv.atender("borra pendiente comprar pan")
+    assert len(lista.abiertos()) == 1
+    assert "Cancelado." in textos(motor)
+    motor.dice_si = True
+    serv.atender("borra pendiente comprar pan")
+    assert lista.abiertos() == [] and lista.items == []
+
+
+def test_por_celular_no_pregunta_si_falta_el_texto(tmp_path):
+    motor, lista, reloj, serv = armar(tmp_path)
+    motor.mudo = True
+    serv.atender("agrega un pendiente")
+    assert lista.abiertos() == []
+    assert any("mismo mensaje" in t for t in textos(motor))
+
+
+def test_las_frases_de_la_gramatica_se_entienden():
+    acciones = {"que tengo pendiente": "listar", "agrega un pendiente": "agregar", "termine un pendiente": "terminar",
+                "borra un pendiente": "borrar", "termine el tres": "terminar", "borra el pendiente cinco": "borrar"}
+    for frase, accion in acciones.items():
+        assert frase in pendientes_voz.FRASES_FIJAS_DE_VOZ
+        assert pendientes_voz.interpretar(frase).accion == accion

@@ -595,6 +595,7 @@ class Motor(threading.Thread):
         self.estado = "dormido"
         self.despierto = False
         self.despierto_desde = 0.0   # cuándo empezó a esperar la orden (monotonic)
+        self.reco_confirmar = None   # reconocedor de "sí" / "no"
         self.reco_libre = None       # reconocedor sin gramática: oye todo y solo se activa con el nombre
         self.reco_escucha = None     # igual, pero mientras espera una orden: para anotar qué oyó cuando no entiende
         self._ultimo_oido = ""
@@ -780,6 +781,24 @@ class Motor(threading.Thread):
             self._decir(texto)
         else:
             self.estado = self._estado_de_reposo()
+
+    def escuchar_libre(self):
+        """Espera que dictes una frase cualquiera (sin lista de frases). "" si no se oyó nada."""
+        if self.reco_libre is None:
+            return ""
+        self._vaciar_cola()
+        texto = self._escuchar(self.reco_libre, 8)
+        log("[dictado]", repr(texto))
+        return texto
+
+    def confirmar_si_no(self):
+        """Espera un "sí" o un "no". True solo si dijiste que sí."""
+        if self.reco_confirmar is None:
+            return False
+        self._vaciar_cola()
+        respuesta = self._escuchar(self.reco_confirmar)
+        log("[confirmación]", repr(respuesta))
+        return bool(set(PALABRAS_SI) & set(respuesta.split()))
 
     def hablar_pendiente(self, texto):
         """Dice un texto tuyo (un pendiente). La voz de personaje no sabe frases libres, así que
@@ -1055,6 +1074,7 @@ class Motor(threading.Thread):
         activacion = [sin_tildes(p.strip()) for p in self.config["activacion"] if p.strip()]
         reco_dormido, activables = crear_reconocedor(modelo, [], silenciosas=activacion)
         reco_confirmar, _ = crear_reconocedor(modelo, PALABRAS_SI + PALABRAS_NO)
+        self.reco_confirmar = reco_confirmar
         try:
             from vosk import KaldiRecognizer
             self.reco_libre = KaldiRecognizer(modelo, RATE)
@@ -1218,7 +1238,7 @@ class Motor(threading.Thread):
             self.estado = "escuchando"
             self._empezar_a_escuchar_orden()
             orden = " ".join(resto)
-            if orden and buscar_comando(orden, self.comandos):
+            if orden and (buscar_comando(orden, self.comandos) or self.servicio_pendientes.reconoce(orden)):
                 # Dijiste todo junto ("Lynx, abrí YouTube"): se cumple sin volver a preguntar.
                 log("[orden en la misma frase]", orden)
                 self._procesar(orden, reco_confirmar)
