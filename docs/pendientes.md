@@ -9,7 +9,7 @@ Función "pendientes al arrancar" de Lynx. Esta página explica cómo está arma
 | 1 | Archivo de pendientes y parser de órdenes | hecha |
 | 2 | Lectura al arrancar y "qué tengo pendiente" | hecha |
 | 3 | Agregar, terminar y borrar por voz | hecha |
-| 4 | Modo insistente y posponer | pendiente |
+| 4 | Modo insistente y posponer | hecha |
 | 5 | Pestaña "Pendientes", respaldo, versión 1.6 | pendiente |
 
 ## Archivos
@@ -27,6 +27,10 @@ Función "pendientes al arrancar" de Lynx. Esta página explica cómo está arma
   ("terminé el dos") después de que Lynx los leyó.
 - Si dos pendientes se parecen, Lynx los dice numerados y pregunta cuál; si no queda claro, no toca nada.
   Borrar siempre pide confirmación (sí/no). Por Telegram no pregunta: el texto va en el mismo mensaje.
+- Modo insistente (`pendientes_insistir`, apagado por defecto): cada `pendientes_cada_min` minutos (mínimo 5) vuelve
+  a leer los que siguen sin hacer. No habla si Lynx está despierto, pausado o atendiendo al celular, ni lee los
+  pospuestos hasta que venza su hora. "Posponé comprar pan una hora" los deja callados; si no decís el tiempo,
+  Lynx pregunta "¿Por cuánto tiempo?".
 - Lo que dijiste tiene prioridad: tus comandos de `comandos.json` se prueban primero; los pendientes solo
   responden si ninguno coincide.
 - `tests/test_pendientes*.py`: pruebas de cada parte.

@@ -258,3 +258,81 @@ def test_las_frases_de_la_gramatica_se_entienden():
     for frase, accion in acciones.items():
         assert frase in pendientes_voz.FRASES_FIJAS_DE_VOZ
         assert pendientes_voz.interpretar(frase).accion == accion
+
+
+def test_posponer_con_tiempo_en_la_frase(tmp_path):
+    hora = datetime(2026, 1, 1, 8, 0)
+    motor, lista, reloj, serv = armar(tmp_path, ["comprar pan", "llamar al medico"], ahora=lambda: hora)
+    serv.atender("pospone comprar pan una hora")
+    assert [i["texto"] for i in lista.para_leer()] == ["llamar al medico"]
+    assert lista.por_id(1)["posponer_hasta"].startswith("2026-01-01T09:00")
+
+
+def test_posponer_pregunta_cuanto_tiempo(tmp_path):
+    hora = datetime(2026, 1, 1, 8, 0)
+    motor, lista, reloj, serv = armar(tmp_path, ["comprar pan"], ahora=lambda: hora)
+    motor.respuestas = ["media hora"]
+    serv.atender("pospone comprar pan")
+    assert "¿Por cuánto tiempo?" in textos(motor)
+    assert lista.por_id(1)["posponer_hasta"].startswith("2026-01-01T08:30")
+
+
+def test_posponer_sin_entender_el_tiempo_no_toca_nada(tmp_path):
+    motor, lista, reloj, serv = armar(tmp_path, ["comprar pan"])
+    motor.respuestas = ["cualquier cosa"]
+    serv.atender("pospone comprar pan")
+    assert lista.por_id(1)["posponer_hasta"] is None
+
+
+def test_insiste_cada_tantos_minutos(tmp_path):
+    motor, lista, reloj, serv = armar(tmp_path, ["a"], {"pendientes_insistir": True, "pendientes_cada_min": 10})
+    reloj.t = 10
+    serv.a_su_hora()                      # lectura al arrancar
+    antes = len(motor.dicho)
+    reloj.t = 10 + 9 * 60
+    serv.a_su_hora()
+    assert len(motor.dicho) == antes      # todavía no pasaron 10 minutos
+    reloj.t = 10 + 10 * 60 + 1
+    serv.a_su_hora()
+    assert len(motor.dicho) > antes
+
+
+def test_no_insiste_si_esta_apagado_o_si_ya_no_hay(tmp_path):
+    motor, lista, reloj, serv = armar(tmp_path, ["a"])
+    reloj.t = 10
+    serv.a_su_hora()
+    antes = len(motor.dicho)
+    reloj.t = 10_000
+    serv.a_su_hora()
+    assert len(motor.dicho) == antes
+    motor.config.update({"pendientes_insistir": True, "pendientes_cada_min": 5})
+    lista.marcar_hecho(1)
+    reloj.t = 20_000
+    serv.a_su_hora()
+    assert len(motor.dicho) == antes
+
+
+def test_insistir_no_habla_si_esta_despierto(tmp_path):
+    motor, lista, reloj, serv = armar(tmp_path, ["a"], {"pendientes_insistir": True, "pendientes_cada_min": 5})
+    reloj.t = 10
+    serv.a_su_hora()
+    antes = len(motor.dicho)
+    motor.despierto = True
+    reloj.t = 5000
+    serv.a_su_hora()
+    assert len(motor.dicho) == antes
+
+
+def test_pospuesto_no_se_insiste_hasta_que_vence(tmp_path):
+    hora = [datetime(2026, 1, 1, 8, 0)]
+    motor, lista, reloj, serv = armar(tmp_path, ["comprar pan"], {"pendientes_insistir": True, "pendientes_cada_min": 5},
+                                      ahora=lambda: hora[0])
+    serv.atender("pospone comprar pan dos horas")
+    antes = len(motor.dicho)
+    reloj.t = 600
+    serv.a_su_hora()
+    assert len(motor.dicho) == antes          # pospuesto: calla
+    hora[0] += timedelta(hours=3)
+    reloj.t = 1200
+    serv.a_su_hora()
+    assert len(motor.dicho) > antes           # ya venció: vuelve a avisar

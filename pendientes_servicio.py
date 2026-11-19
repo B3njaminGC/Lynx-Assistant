@@ -17,7 +17,8 @@ import pendientes_voz
 
 ESPERA_AL_ARRANCAR = 5          # segundos que espera antes de leerlos: que Windows termine de arrancar el audio
 MINUTOS_ENTRE_LECTURAS = 10     # si Lynx se reinicia, no los vuelve a leer antes de esto
-ORDENES_QUE_ATIENDE = {"listar", "agregar", "terminar", "borrar"}
+MINIMO_ENTRE_INSISTENCIAS = 5   # minutos: aunque configures menos, no insiste más seguido que esto
+ORDENES_QUE_ATIENDE = {"listar", "agregar", "terminar", "borrar", "posponer"}
 
 
 class Servicio:
@@ -27,14 +28,16 @@ class Servicio:
         self.reloj = reloj
         self.inicio = reloj()
         self.leidos_al_arrancar = False
+        self.ultima_vez = self.inicio   # cuándo habló de pendientes por última vez (para insistir)
         self.ultima_lista = []     # lo último que se leyó, en ese orden: a eso se refiere "el dos"
 
     # ---------------------------------------------------------- al arrancar
     def a_su_hora(self):
         """Se llama en cada vuelta del motor. Lee los pendientes una vez, cuando llega el momento."""
-        if self.leidos_al_arrancar or not self._puede_hablar():
+        if self.leidos_al_arrancar:
+            self._insistir()
             return
-        if self.reloj() - self.inicio < ESPERA_AL_ARRANCAR:
+        if not self._puede_hablar() or self.reloj() - self.inicio < ESPERA_AL_ARRANCAR:
             return
         self.leidos_al_arrancar = True
         if not self.motor.config.get("pendientes_al_arrancar", True):
@@ -45,6 +48,22 @@ class Servicio:
         self.lista.limpiar_hechos_viejos()
         self.leer(avisar_si_no_hay=False)
 
+    # ---------------------------------------------------------- modo insistente
+    def _insistir(self):
+        """Si está activado, vuelve a leer los que siguen sin hacer cada tantos minutos."""
+        if not self.motor.config.get("pendientes_insistir", False):
+            return
+        try:
+            cada = max(MINIMO_ENTRE_INSISTENCIAS, float(self.motor.config.get("pendientes_cada_min", 30)))
+        except (TypeError, ValueError):
+            cada = 30
+        if self.reloj() - self.ultima_vez < cada * 60 or not self._puede_hablar():
+            return
+        if self.lista.para_leer():
+            self.leer(avisar_si_no_hay=False)
+        else:
+            self.ultima_vez = self.reloj()   # no hay nada que repetir: vuelve a mirar dentro de otro rato
+
     def _puede_hablar(self):
         m = self.motor
         return not (m.despierto or m.mudo or m.pausado.is_set()) and m.voz_activa is not None
@@ -53,6 +72,7 @@ class Servicio:
     def leer(self, avisar_si_no_hay=True):
         """Dice los pendientes. Si no hay ninguno, solo avisa cuando se lo pediste vos."""
         items = self.lista.para_leer()
+        self.ultima_vez = self.reloj()
         self.ultima_lista = items
         if not items and not avisar_si_no_hay:
             return
@@ -72,7 +92,7 @@ class Servicio:
 
     def atender(self, texto):
         """Cumple la orden si es de pendientes. Devuelve True si la atendió."""
-        orden = pendientes_voz.interpretar(texto)
+        orden = pendientes_voz.interpretar(texto, self.lista.ahora())   # la misma hora que usa la lista
         if orden is None or orden.accion not in ORDENES_QUE_ATIENDE:
             return False
         if orden.accion == "listar":
@@ -83,6 +103,8 @@ class Servicio:
             self._terminar(orden.texto)
         elif orden.accion == "borrar":
             self._borrar(orden.texto)
+        elif orden.accion == "posponer":
+            self._posponer(orden.texto, orden.hasta)
         return True
 
     # ---------------------------------------------------------- agregar
@@ -160,3 +182,19 @@ class Servicio:
         self.lista.borrar(item["id"])
         self.ultima_lista = []
         self.motor.hablar("Borrado.")
+
+    # ---------------------------------------------------------- posponer
+    def _posponer(self, texto, hasta):
+        item = self._elegir(texto, "¿Cuál posponés?", "posponé comprar pan una hora.")
+        if item is None:
+            return
+        if hasta is None:
+            respuesta = self._dictado("¿Por cuánto tiempo?")
+            hasta = pendientes_voz.tiempo_de(respuesta, self.lista.ahora()) if respuesta else None
+            if hasta is None:
+                if respuesta:
+                    self.motor.hablar("No entendí cuánto tiempo, no toqué nada.")
+                return
+        self.lista.posponer(item["id"], hasta)
+        self.ultima_lista = []
+        self.motor.hablar("Listo, te lo vuelvo a recordar más tarde.")

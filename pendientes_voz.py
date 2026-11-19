@@ -79,6 +79,12 @@ def _orden_posponer(texto, ahora):
     return Orden("posponer", _sin_nexos(palabras), hasta)
 
 
+def tiempo_de(texto, ahora=None):
+    """Solo la hora de vuelta de una frase suelta ("una hora", "media hora", "mañana"). None si no hay."""
+    palabras = normalizar(texto).split()
+    return _buscar_tiempo(palabras, ahora or datetime.now())[2]
+
+
 def _sin_nexos(palabras):
     """Saca "por", "para", "durante" sueltos de los bordes ("comprar pan por" -> "comprar pan")."""
     sobran = {"por", "para", "durante", "dentro", "de", "en", "hasta"}
@@ -166,7 +172,8 @@ def frases_de_lectura(items):
 FRASES_FIJAS_DE_VOZ = (
     ["que tengo pendiente", "que pendientes tengo", "mis pendientes", "leeme mis pendientes",
      "agrega un pendiente", "anota un pendiente", "agrega pendiente", "termine un pendiente",
-     "borra un pendiente", "borra pendiente"]
+     "borra un pendiente", "borra pendiente", "pospone un pendiente"]
     + [f"termine el {n}" for n in _ORDINALES]
     + [f"borra el pendiente {n}" for n in _ORDINALES]
+    + [f"pospone el {n}" for n in _ORDINALES]
 )
