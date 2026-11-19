@@ -80,6 +80,7 @@ class Pendientes:
         self.avisar = avisar        # dónde anotar los problemas (en Lynx: el registro)
         self.items = []
         self.ultimo_id = 0          # el id más alto que se usó alguna vez (no se vuelve a usar aunque borres)
+        self.ultima_lectura = None  # cuándo se leyeron en voz alta por última vez (evita repetir al reiniciar)
         self.cargar()
 
     # ---------------------------------------------------------- archivo
@@ -87,12 +88,14 @@ class Pendientes:
         """Lee el archivo. Si no existe, empieza vacío; si está roto, lo aparta (no lo pisa) y empieza vacío."""
         self.items = []
         self.ultimo_id = 0
+        self.ultima_lectura = None
         if not self.ruta.exists():
             return
         try:
             datos = json.loads(self.ruta.read_text(encoding="utf-8"))
             self.items = [self._validar(i) for i in datos["pendientes"]]
             self.ultimo_id = max([int(datos.get("ultimo_id", 0))] + [i["id"] for i in self.items])
+            self.ultima_lectura = datos.get("ultima_lectura")
         except (OSError, ValueError, KeyError, TypeError):
             apartado = self.ruta.with_name(f"pendientes.roto-{self.ahora():%Y%m%d-%H%M%S}.json")
             self.avisar("[pendientes] el archivo está dañado; lo guardé aparte como", apartado.name)
@@ -102,6 +105,7 @@ class Pendientes:
                 pass
             self.items = []
             self.ultimo_id = 0
+            self.ultima_lectura = None
 
     @staticmethod
     def _validar(item):
@@ -116,7 +120,8 @@ class Pendientes:
     def guardar(self):
         """Guarda sin riesgo de dejar el archivo a medias: escribe uno nuevo y recién después lo cambia."""
         temporal = self.ruta.with_name(self.ruta.name + ".tmp")
-        datos = {"version": VERSION_ARCHIVO, "ultimo_id": self.ultimo_id, "pendientes": self.items}
+        datos = {"version": VERSION_ARCHIVO, "ultimo_id": self.ultimo_id, "ultima_lectura": self.ultima_lectura,
+                 "pendientes": self.items}
         temporal.write_text(json.dumps(datos, ensure_ascii=False, indent=2), encoding="utf-8")
         os.replace(temporal, self.ruta)
 
@@ -136,6 +141,18 @@ class Pendientes:
             return bool(hasta) and datetime.fromisoformat(hasta) > ahora
         except ValueError:
             return False
+
+    def minutos_desde_la_lectura(self):
+        """Cuántos minutos pasaron desde la última lectura en voz alta (None si nunca se leyeron)."""
+        try:
+            return (self.ahora() - datetime.fromisoformat(self.ultima_lectura)).total_seconds() / 60
+        except (TypeError, ValueError):
+            return None
+
+    def marcar_lectura(self):
+        """Anota que acaba de leerlos."""
+        self.ultima_lectura = self.ahora().isoformat(timespec="seconds")
+        self.guardar()
 
     def por_id(self, id_):
         return next((i for i in self.items if i["id"] == id_), None)

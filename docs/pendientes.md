@@ -7,7 +7,7 @@ Función "pendientes al arrancar" de Lynx. Esta página explica cómo está arma
 | Parte | Qué hace | Estado |
 | --- | --- | --- |
 | 1 | Archivo de pendientes y parser de órdenes | hecha |
-| 2 | Lectura al arrancar y "qué tengo pendiente" | pendiente |
+| 2 | Lectura al arrancar y "qué tengo pendiente" | hecha |
 | 3 | Agregar, terminar y borrar por voz | pendiente |
 | 4 | Modo insistente y posponer | pendiente |
 | 5 | Pestaña "Pendientes", respaldo, versión 1.6 | pendiente |
@@ -16,7 +16,14 @@ Función "pendientes al arrancar" de Lynx. Esta página explica cómo está arma
 
 - `pendientes.py`: guarda y busca. No sabe nada de voz ni de ventanas.
 - `pendientes_voz.py`: convierte lo que dijiste en una `Orden` (acción, texto, hora). No toca archivos.
-- `tests/test_pendientes.py` y `tests/test_pendientes_voz.py`: pruebas de los dos.
+- `pendientes_servicio.py`: el puente con Lynx. Decide cuándo leerlos (5 segundos después de que el micrófono está
+  listo, una vez por arranque, y no más de una vez cada 10 minutos aunque Lynx se reinicie) y atiende "qué tengo
+  pendiente". No habla si Lynx está despierto, pausado o respondiendo al celular. Sin pendientes, al arrancar calla.
+- Las frases fijas ("Tenés estos pendientes.") se pueden preparar con la voz de personaje; el texto de cada pendiente
+  siempre suena con una voz de Windows (la de personaje solo sabe frases ya preparadas).
+- Lo que dijiste tiene prioridad: tus comandos de `comandos.json` se prueban primero; los pendientes solo
+  responden si ninguno coincide.
+- `tests/test_pendientes*.py`: pruebas de cada parte.
 
 ## Formato de `pendientes.json`
 

@@ -134,3 +134,33 @@ def _numero(p):
     if len(p) == 3 and p[0] in _DECENAS and p[1] == "y" and p[2] in _UNIDADES and _UNIDADES[p[2]] < 10:
         return _DECENAS[p[0]] + _UNIDADES[p[2]]
     return None
+
+
+# ------------------------------------------------------------ lo que se dice al leerlos
+_ORDINALES = ["uno", "dos", "tres", "cuatro", "cinco"]
+MAXIMO_A_LEER = len(_ORDINALES)   # si hay más, se leen los primeros y se dice cuántos faltan
+
+
+def frases_de_lectura(items):
+    """
+    Lo que Lynx dice al leer los pendientes: una lista de (tipo, texto).
+    tipo "fija" = frase que ya viene preparada (puede sonar con la voz de personaje);
+    tipo "item" = texto tuyo, que se dice con una voz de Windows.
+    """
+    if not items:
+        return [("fija", "No tenés pendientes.")]
+    if len(items) == 1:
+        return [("fija", "Tenés un pendiente."), ("item", items[0]["texto"] + ".")]
+    frases = [("fija", "Tenés estos pendientes.")]
+    for numero, item in enumerate(items[:MAXIMO_A_LEER]):
+        frases.append(("item", f"{_ORDINALES[numero].capitalize()}, {item['texto']}."))
+    resto = len(items) - MAXIMO_A_LEER
+    if resto == 1:
+        frases.append(("fija", "Y uno más."))
+    elif resto > 1:
+        frases.append(("item", f"Y {resto} más."))
+    return frases
+
+
+# Frases que se pueden decir con Lynx ya despierto (las entiende el reconocedor de frases fijas).
+FRASES_FIJAS_DE_VOZ = ["que tengo pendiente", "que pendientes tengo", "mis pendientes", "leeme mis pendientes"]
