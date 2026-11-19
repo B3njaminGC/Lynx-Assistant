@@ -7,6 +7,7 @@ Copias de seguridad de tus comandos y tu configuración.
   Quedan las últimas 10 en la carpeta "respaldos" junto al programa.
 """
 import json
+import os
 import time
 import zipfile
 from datetime import datetime
@@ -15,7 +16,7 @@ import nucleo
 
 CARPETA_RESPALDOS = nucleo.BASE / "respaldos"
 GUARDAR_ULTIMOS = 10
-NOMBRES = ("comandos.json", "config.json")
+NOMBRES = ("comandos.json", "config.json", "pendientes.json")
 SECRETOS = ("telegram_token",)  # no van en el zip que exportás
 
 
@@ -78,7 +79,11 @@ def exportar(destino):
     with zipfile.ZipFile(destino, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("comandos.json", json.dumps(comandos, ensure_ascii=False, indent=2))
         z.writestr("config.json", json.dumps(config, ensure_ascii=False, indent=2))
-        z.writestr("LEEME.txt", "Respaldo de Lynx. Para recuperarlo: Lynx > General > Restaurar copia.\n"
+        pendientes = nucleo.BASE / "pendientes.json"
+        if pendientes.exists():
+            z.writestr("pendientes.json", pendientes.read_text(encoding="utf-8"))
+        z.writestr("LEEME.txt", "Respaldo de Lynx. Para recuperarlo: Lynx > Respaldo > Restaurar copia.\n"
+                                "Incluye comandos, configuración y pendientes. "
                                 "No incluye el token de Telegram ni las voces de personaje.\n")
     return len(comandos)
 
@@ -104,6 +109,21 @@ def leer_respaldo(ruta):
     return comandos, config
 
 
+def leer_pendientes(ruta):
+    """Los pendientes que trae el respaldo (el texto del archivo) o None si no trae o están dañados."""
+    try:
+        with zipfile.ZipFile(ruta) as z:
+            if "pendientes.json" not in z.namelist():
+                return None
+            texto = z.read("pendientes.json").decode("utf-8")
+        datos = json.loads(texto)
+    except (OSError, ValueError, KeyError, zipfile.BadZipFile):
+        return None
+    if not isinstance(datos, dict) or not isinstance(datos.get("pendientes"), list):
+        return None
+    return texto
+
+
 def restaurar(ruta, configuracion_actual):
     """
     Restaura comandos y configuración desde 'ruta'. Antes guarda una copia automática de lo actual.
@@ -111,6 +131,7 @@ def restaurar(ruta, configuracion_actual):
     defecto y conserva tus secretos actuales (por ejemplo el token de Telegram) si el respaldo no los trae.
     """
     comandos, config = leer_respaldo(ruta)
+    pendientes = leer_pendientes(ruta)      # los respaldos viejos no lo traen: ahí se dejan los actuales
     copia_automatica("antes-de-restaurar")
     nueva = dict(nucleo.CONFIG_BASE)
     nueva.update({k: v for k, v in config.items() if k in nucleo.CONFIG_BASE})
@@ -118,4 +139,9 @@ def restaurar(ruta, configuracion_actual):
         if not nueva.get(clave) and configuracion_actual.get(clave):
             nueva[clave] = configuracion_actual[clave]
     nucleo.guardar_comandos(comandos)
+    if pendientes is not None:
+        destino = nucleo.BASE / "pendientes.json"
+        temporal = destino.with_name("pendientes.json.tmp")
+        temporal.write_text(pendientes, encoding="utf-8")
+        os.replace(temporal, destino)
     return len(comandos), nueva

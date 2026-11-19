@@ -7,8 +7,10 @@ Cada pendiente se guarda así:
     {"id": 3, "texto": "comprar pan", "hecho": false, "creado": "2026-11-19T15:50:00",
      "hecho_en": null, "posponer_hasta": null}
 """
+import functools
 import json
 import os
+import threading
 import unicodedata
 from collections import namedtuple
 from datetime import datetime, timedelta
@@ -71,6 +73,15 @@ def numero_de(texto):
     return NUMEROS.get(palabra)
 
 
+def _con_candado(funcion):
+    """La ventana y el motor de voz usan la misma lista a la vez: de a una operación por vez."""
+    @functools.wraps(funcion)
+    def envuelta(self, *args, **kwargs):
+        with self.candado:
+            return funcion(self, *args, **kwargs)
+    return envuelta
+
+
 class Pendientes:
     """La lista de pendientes guardada en un archivo."""
 
@@ -81,9 +92,11 @@ class Pendientes:
         self.items = []
         self.ultimo_id = 0          # el id más alto que se usó alguna vez (no se vuelve a usar aunque borres)
         self.ultima_lectura = None  # cuándo se leyeron en voz alta por última vez (evita repetir al reiniciar)
+        self.candado = threading.RLock()
         self.cargar()
 
     # ---------------------------------------------------------- archivo
+    @_con_candado
     def cargar(self):
         """Lee el archivo. Si no existe, empieza vacío; si está roto, lo aparta (no lo pisa) y empieza vacío."""
         self.items = []
@@ -149,6 +162,7 @@ class Pendientes:
         except (TypeError, ValueError):
             return None
 
+    @_con_candado
     def marcar_lectura(self):
         """Anota que acaba de leerlos."""
         self.ultima_lectura = self.ahora().isoformat(timespec="seconds")
@@ -158,6 +172,7 @@ class Pendientes:
         return next((i for i in self.items if i["id"] == id_), None)
 
     # ---------------------------------------------------------- cambios
+    @_con_candado
     def agregar(self, texto):
         """Suma un pendiente. Si ya hay uno abierto igual, no lo repite y devuelve ese. -> (item, es_nuevo)"""
         texto = " ".join(str(texto).split())
@@ -174,25 +189,33 @@ class Pendientes:
         self.guardar()
         return item, True
 
+    @_con_candado
     def marcar_hecho(self, id_):
         item = self.por_id(id_)
+        if item is None:
+            return None
         item["hecho"] = True
         item["hecho_en"] = self.ahora().isoformat(timespec="seconds")
         item["posponer_hasta"] = None
         self.guardar()
         return item
 
+    @_con_candado
     def borrar(self, id_):
         self.items = [i for i in self.items if i["id"] != id_]
         self.guardar()
 
+    @_con_candado
     def posponer(self, id_, hasta):
         """Lo deja callado hasta `hasta` (un datetime)."""
         item = self.por_id(id_)
+        if item is None:
+            return None
         item["posponer_hasta"] = hasta.isoformat(timespec="seconds")
         self.guardar()
         return item
 
+    @_con_candado
     def limpiar_hechos_viejos(self):
         """Saca del archivo los hechos de hace más de 30 días. Devuelve cuántos sacó."""
         limite = self.ahora() - timedelta(days=DIAS_QUE_SE_GUARDAN_LOS_HECHOS)

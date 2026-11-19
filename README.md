@@ -21,7 +21,8 @@ animado que reacciona a tu voz. El reconocimiento de voz es **local**: tu audio 
 - **Importar voces desde la app**: pegás el link de una voz (Hugging Face, voice-models.com...) o elegís un `.zip`.
 - **Elegir por dónde habla**: parlantes o auriculares, también por voz ("Lynx, hablá por los auriculares").
 - **Control desde el celular** por Telegram: batería, estado de descargas, apagar al terminar, tus comandos.
-- **Respaldo** de comandos y ajustes, y **actualizaciones** desde la propia app, con la descarga verificada.
+- **Pendientes al arrancar**: te lee tu lista de pendientes y los manejás por voz (agregar, terminar, borrar, posponer).
+- **Respaldo** de comandos, ajustes y pendientes, y **actualizaciones** desde la propia app, con la descarga verificada.
 
 ## Instalación
 
@@ -98,9 +99,29 @@ cuando termine la descarga" (avisa y apaga con cuenta regresiva cancelable) o le
 comandos. Solo obedece a tu cuenta; los mensajes de otras cuentas se ignoran. Usa internet únicamente para
 hablar con Telegram. El token queda en tu `config.json` (que no se sube a GitHub): no lo compartas.
 
+## Pendientes
+
+Al arrancar, cuando el micrófono ya está listo, Lynx te lee tus pendientes: "Tenés estos pendientes. Uno, comprar
+pan. Dos, llamar al médico." Si no tenés ninguno, no dice nada. Todo queda en `pendientes.json`, sin internet.
+
+Siempre con "Lynx" adelante:
+
+| Decí | Qué hace |
+|---|---|
+| "agregá pendiente comprar pan" | lo anota (si decís solo "agregá un pendiente", te pregunta qué anotar) |
+| "terminé comprar pan" o "terminé el dos" | lo tacha; si dos se parecen, te pregunta cuál |
+| "qué tengo pendiente" | los vuelve a leer |
+| "borrá pendiente comprar pan" | lo borra, después de pedirte confirmación |
+| "posponé comprar pan una hora" | lo deja callado ese rato (también "media hora", "mañana"...) |
+
+Lo más seguro para terminar o borrar es el número, después de que Lynx los leyó. Tus comandos de siempre tienen
+prioridad sobre estas órdenes. En la pestaña **Pendientes** elegís si los lee al arrancar, si insiste cada X minutos
+hasta que los marques, con qué voz, y ves y editás la lista. Los textos tuyos se leen con una voz de Windows (la voz
+de personaje solo sabe frases ya preparadas).
+
 ## Copias de seguridad
 
-En la pestaña **Respaldo** guardás y restaurás todos tus comandos y ajustes (el token de Telegram no se
+En la pestaña **Respaldo** guardás y restaurás todos tus comandos, ajustes y pendientes (el token de Telegram no se
 exporta). Además Lynx hace una copia automática por día en `respaldos\` (guarda las últimas 10) y otra
 antes de cada actualización. Al restaurar, primero se guarda lo que tenías.
 

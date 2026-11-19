@@ -10,7 +10,7 @@ Función "pendientes al arrancar" de Lynx. Esta página explica cómo está arma
 | 2 | Lectura al arrancar y "qué tengo pendiente" | hecha |
 | 3 | Agregar, terminar y borrar por voz | hecha |
 | 4 | Modo insistente y posponer | hecha |
-| 5 | Pestaña "Pendientes", respaldo, versión 1.6 | pendiente |
+| 5 | Pestaña "Pendientes", respaldo, versión 1.6 | hecha |
 
 ## Archivos
 
@@ -74,3 +74,12 @@ de tus palabras aparecen (aunque estén un poco mal reconocidas) y qué tan pare
 | "posponé comprar pan una hora" (también media hora, N minutos, mañana a las 9:00) | posponer |
 
 Si una orden no trae el texto ("terminé"), el parser devuelve la acción con el texto vacío y el motor preguntará cuál.
+
+## Ventana y respaldo (parte 5)
+
+- La pestaña "Pendientes" (`ventanas.py`) usa la misma lista que el motor (`motor.pendientes`), con un candado para que
+  la ventana y la voz no se pisen. Los ajustes `pendientes_*` se aplican en vivo desde `app.aplicar_config`, sin
+  reiniciar el motor.
+- `respaldo.py` guarda `pendientes.json` en los respaldos (manuales y automáticos). Un respaldo viejo sin pendientes
+  no toca los actuales; uno con pendientes dañados se ignora. Al restaurar, el motor vuelve a leer el archivo.
+- `pendientes.json` está en `.gitignore` y fuera del instalador (`lynx.iss`): son datos personales.
