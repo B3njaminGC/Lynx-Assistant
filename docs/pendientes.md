@@ -1,0 +1,59 @@
+# Pendientes: notas técnicas
+
+Función "pendientes al arrancar" de Lynx. Esta página explica cómo está armada; para usarla, mirá el README.
+
+## Estado
+
+| Parte | Qué hace | Estado |
+| --- | --- | --- |
+| 1 | Archivo de pendientes y parser de órdenes | hecha |
+| 2 | Lectura al arrancar y "qué tengo pendiente" | pendiente |
+| 3 | Agregar, terminar y borrar por voz | pendiente |
+| 4 | Modo insistente y posponer | pendiente |
+| 5 | Pestaña "Pendientes", respaldo, versión 1.6 | pendiente |
+
+## Archivos
+
+- `pendientes.py`: guarda y busca. No sabe nada de voz ni de ventanas.
+- `pendientes_voz.py`: convierte lo que dijiste en una `Orden` (acción, texto, hora). No toca archivos.
+- `tests/test_pendientes.py` y `tests/test_pendientes_voz.py`: pruebas de los dos.
+
+## Formato de `pendientes.json`
+
+```json
+{
+  "version": 1,
+  "ultimo_id": 3,
+  "pendientes": [
+    {"id": 3, "texto": "comprar pan", "hecho": false, "creado": "2026-11-19T15:50:00",
+     "hecho_en": null, "posponer_hasta": null}
+  ]
+}
+```
+
+- Se guarda escribiendo un archivo nuevo y reemplazando el anterior, así no queda a medias si se corta la luz.
+- Si el archivo está dañado, no se pisa: se renombra a `pendientes.roto-AAAAMMDD-HHMMSS.json` y se empieza vacío.
+- Los hechos se guardan 30 días y después se limpian.
+- Los ids no se reutilizan, aunque borres el último.
+
+## Cómo se busca un pendiente
+
+Lo que dijiste se compara con cada pendiente abierto (sin tildes, sin "el", "de", etc.). El puntaje mezcla cuántas
+de tus palabras aparecen (aunque estén un poco mal reconocidas) y qué tan parecido es el texto entero.
+
+- Ninguno llega a 0,55: no hay coincidencia.
+- Hay uno claramente mejor: es ese.
+- Hay varios casi iguales: Lynx pregunta cuál (hasta tres).
+- Si dijiste un número ("el dos"), se usa la lista tal como se leyó en voz alta.
+
+## Órdenes que entiende el parser
+
+| Dicho | Acción |
+| --- | --- |
+| "terminé comprar pan", "ya hice ...", "marcá como hecho ..." | terminar |
+| "agregá pendiente comprar pan", "anotá un pendiente de ..." | agregar |
+| "borrá pendiente comprar pan" | borrar |
+| "qué tengo pendiente", "leeme mis pendientes" | listar |
+| "posponé comprar pan una hora" (también media hora, N minutos, mañana a las 9:00) | posponer |
+
+Si una orden no trae el texto ("terminé"), el parser devuelve la acción con el texto vacío y el motor preguntará cuál.
