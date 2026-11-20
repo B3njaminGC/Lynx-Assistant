@@ -24,7 +24,3 @@ codigo-base*.zip
 # Python
 __pycache__/
 *.pyc
-
-# Datos personales
-pendientes.json
-pendientes.roto-*.json

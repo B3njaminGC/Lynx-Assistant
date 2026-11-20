@@ -30,8 +30,8 @@ Name: "es"; MessagesFile: "compiler:Languages\Spanish.isl"
 Name: "escritorio"; Description: "Crear un acceso directo en el escritorio"; Flags: unchecked
 
 [Files]
-; Programa y modelo de voz. NO se copian tu config.json, tus comandos, tus pendientes ni tus voces de personaje: cada persona arma los suyos.
-Source: "dist\Asistente\*"; DestDir: "{app}"; Excludes: "config.json,comandos.json,pendientes.json,pendientes.roto-*.json,asistente.log,personajes\*,audios\*,codigo\*,codigo.anterior\*,codigo.fallido\*,respaldos\*"; Flags: recursesubdirs createallsubdirs ignoreversion
+; Programa y modelo de voz. NO se copian tu config.json, tus comandos ni tus voces de personaje: cada persona arma los suyos.
+Source: "dist\Asistente\*"; DestDir: "{app}"; Excludes: "config.json,comandos.json,asistente.log,personajes\*,audios\*,codigo\*,codigo.anterior\*,codigo.fallido\*,respaldos\*"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Icons]
 Name: "{autoprograms}\Lynx"; Filename: "{app}\Asistente.exe"

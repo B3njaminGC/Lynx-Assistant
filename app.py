@@ -26,7 +26,6 @@ import remoto
 import respaldo
 from ventanas import Circulo, VentanaConfiguracion
 
-CLAVES_DE_PENDIENTES = ("pendientes_al_arrancar", "pendientes_insistir", "pendientes_cada_min", "pendientes_voz")
 PUERTO = 47653  # solo sirve para detectar que ya hay otra copia abierta
 
 
@@ -131,9 +130,6 @@ class App:
                for k in ("microfono", "activacion", "responder_con_voz", "voz", "voz_velocidad",
                          "personaje", "personaje_tono", "applio_dir", "salida_audio")):
             self.reiniciar_motor()
-        elif self.motor is not None:  # los ajustes de pendientes se aplican en vivo, sin reiniciar el motor
-            for clave in CLAVES_DE_PENDIENTES:
-                self.motor.config[clave] = nuevo.get(clave)
 
     def abrir_configuracion(self):
         if self.ventana is not None and self.ventana.winfo_exists():

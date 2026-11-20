@@ -19,10 +19,7 @@ from pathlib import Path
 
 from personajes import Personajes, escribir_lista, guion_voz_base
 import clic
-import pendientes_servicio
-import pendientes_voz
 import teclas
-from pendientes import Pendientes
 
 
 def carpeta_base():
@@ -89,10 +86,6 @@ CONFIG_BASE = {
     "voz": None,                    # None = voz predeterminada de Windows; o el nombre de la voz
     "voz_velocidad": 170,
     "iniciar_con_windows": False,
-    "pendientes_al_arrancar": True,  # al iniciar, lee en voz alta los pendientes guardados (pendientes.json)
-    "pendientes_insistir": False,    # repetirlos cada tanto hasta que los marques como hechos
-    "pendientes_cada_min": 30,       # cada cuántos minutos insiste (si pendientes_insistir está activo)
-    "pendientes_voz": None,          # voz para leerlos: None = la voz general
     "segundos_atento": 8,           # tras decir su nombre, cuánto espera una orden antes de volver a dormirse
     "ganancia_auto": True,          # sube solo el volumen del micrófono cuando hablás lejos o bajito
     "activacion_estricta": True,    # el nombre solo vale si el modelo lo oye claro (evita activarse con otras palabras)
@@ -141,7 +134,6 @@ FRASES_FIJAS = [  # la de prueba va primera: se convierte antes y se puede escuc
     FRASE_DE_PRUEBA, "Te escucho.", "Hasta luego.", "¿Confirmás?", "Cancelado.", "No entendí ese comando.",
     "No pude hacerlo. Revisá la ruta del comando.", "Todavía no sé hacer esa acción.",
     "No encuentro esa salida de audio.",
-    "No tenés pendientes.", "Tenés un pendiente.", "Tenés estos pendientes.", "Y uno más.",
 ]
 
 GESTOR = Personajes(BASE, log, SIN_VENTANA)  # voces de personaje: se comparte entre reinicios del motor
@@ -589,13 +581,10 @@ class Motor(threading.Thread):
         self.config = dict(config)
         self.parar = threading.Event()
         self.pausado = threading.Event()
-        self.pendientes = Pendientes(BASE / "pendientes.json", avisar=log)
-        self.servicio_pendientes = pendientes_servicio.Servicio(self, self.pendientes)
         self.recargar = threading.Event()
         self.estado = "dormido"
         self.despierto = False
         self.despierto_desde = 0.0   # cuándo empezó a esperar la orden (monotonic)
-        self.reco_confirmar = None   # reconocedor de "sí" / "no"
         self.reco_libre = None       # reconocedor sin gramática: oye todo y solo se activa con el nombre
         self.reco_escucha = None     # igual, pero mientras espera una orden: para anotar qué oyó cuando no entiende
         self._ultimo_oido = ""
@@ -781,41 +770,6 @@ class Motor(threading.Thread):
             self._decir(texto)
         else:
             self.estado = self._estado_de_reposo()
-
-    def escuchar_libre(self):
-        """Espera que dictes una frase cualquiera (sin lista de frases). "" si no se oyó nada."""
-        if self.reco_libre is None:
-            return ""
-        self._vaciar_cola()
-        texto = self._escuchar(self.reco_libre, 8)
-        log("[dictado]", repr(texto))
-        return texto
-
-    def confirmar_si_no(self):
-        """Espera un "sí" o un "no". True solo si dijiste que sí."""
-        if self.reco_confirmar is None:
-            return False
-        self._vaciar_cola()
-        respuesta = self._escuchar(self.reco_confirmar)
-        log("[confirmación]", repr(respuesta))
-        return bool(set(PALABRAS_SI) & set(respuesta.split()))
-
-    def hablar_pendiente(self, texto):
-        """Dice un texto tuyo (un pendiente). La voz de personaje no sabe frases libres, así que
-        usa la voz elegida para pendientes en la configuración (o la general)."""
-        log("[asistente]", texto)
-        if self.mudo:
-            self.ultima_respuesta = (self.ultima_respuesta + " " + texto).strip()
-            return
-        if not self.config.get("responder_con_voz", True) or self.voz_activa is None:
-            return
-        elegida = self.config.get("pendientes_voz")
-        if elegida and elegida != self._voz_elegida():
-            self._aplicar_voz(elegida, self.config.get("voz_velocidad", 170))
-            self._decir(texto, personaje=False)
-            self._aplicar_voz(self._voz_elegida(), self.config.get("voz_velocidad", 170))
-        else:
-            self._decir(texto, personaje=False)
 
     def _iniciar_voz(self):
         self.voz = None
@@ -1019,9 +973,6 @@ class Motor(threading.Thread):
 
     def _procesar(self, texto, reco_confirmar):
         cmd = buscar_comando(texto, self.comandos)
-        if cmd is None and self.servicio_pendientes.atender(texto):  # tus comandos ganan siempre
-            self.estado = self._estado_de_reposo()
-            return True
         if cmd is None:
             self.hablar("No entendí ese comando.")
             return False
@@ -1050,8 +1001,7 @@ class Motor(threading.Thread):
             return
         avisos = []
         reconocedor, usables = crear_reconocedor(
-            modelo, [c["frase"] for c in comandos],
-            silenciosas=PALABRAS_DORMIR + pendientes_voz.FRASES_FIJAS_DE_VOZ, avisos=avisos)
+            modelo, [c["frase"] for c in comandos], silenciosas=PALABRAS_DORMIR, avisos=avisos)
         self.comandos, self.reco_comandos, self.avisos = comandos, reconocedor, avisos
         log("Frases que entiendo:", usables)
 
@@ -1074,7 +1024,6 @@ class Motor(threading.Thread):
         activacion = [sin_tildes(p.strip()) for p in self.config["activacion"] if p.strip()]
         reco_dormido, activables = crear_reconocedor(modelo, [], silenciosas=activacion)
         reco_confirmar, _ = crear_reconocedor(modelo, PALABRAS_SI + PALABRAS_NO)
-        self.reco_confirmar = reco_confirmar
         try:
             from vosk import KaldiRecognizer
             self.reco_libre = KaldiRecognizer(modelo, RATE)
@@ -1095,7 +1044,6 @@ class Motor(threading.Thread):
 
         self.listo = True
         self.estado = "dormido"
-        self.servicio_pendientes = pendientes_servicio.Servicio(self, self.pendientes)  # el reloj arranca ahora
         with sd.RawInputStream(samplerate=RATE, blocksize=2000, dtype="int16", channels=1,
                                device=dispositivo, callback=self._callback):
             log("Escuchando.")
@@ -1180,7 +1128,6 @@ class Motor(threading.Thread):
             self.recargar.clear()
             self._preparar_comandos(modelo)
             self.preparar_personaje()  # agregaste o cambiaste un comando: prepara solo lo nuevo
-        self.servicio_pendientes.a_su_hora()
         if self.prueba_voz is not None:
             self._hacer_prueba_de_voz()
         if self.prueba_personaje:
@@ -1238,7 +1185,7 @@ class Motor(threading.Thread):
             self.estado = "escuchando"
             self._empezar_a_escuchar_orden()
             orden = " ".join(resto)
-            if orden and (buscar_comando(orden, self.comandos) or self.servicio_pendientes.reconoce(orden)):
+            if orden and buscar_comando(orden, self.comandos):
                 # Dijiste todo junto ("Lynx, abrí YouTube"): se cumple sin volver a preguntar.
                 log("[orden en la misma frase]", orden)
                 self._procesar(orden, reco_confirmar)

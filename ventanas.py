@@ -15,7 +15,6 @@ import remoto
 import respaldo
 import importar
 import nucleo
-from pendientes import Pendientes
 from configurar import TIPOS, Dialogo, valor_en_texto
 
 TRANSPARENTE = "#010101"  # color que Windows deja invisible alrededor del círculo
@@ -26,7 +25,6 @@ COLORES = {  # estado: (color principal, color del halo)
 }
 MIC_PREDETERMINADO = "Predeterminado de Windows"
 VOZ_PREDETERMINADA = "Predeterminada de Windows"
-VOZ_GENERAL = "La misma voz del asistente"
 SIN_PERSONAJE = "Ninguno (voz normal)"
 SALIDA_PREDETERMINADA = "Predeterminada de Windows"
 SITIOS_DE_VOCES = [("voice-models.com", "https://voice-models.com/"),
@@ -180,7 +178,6 @@ class VentanaConfiguracion(tk.Toplevel):
         self._pestana_comandos(cuaderno)
         self._pestana_microfono(cuaderno)
         self._pestana_general(cuaderno)
-        self._pestana_pendientes(cuaderno)
         self._pestana_personaje(cuaderno)
         self._pestana_celular(cuaderno)
         self._pestana_respaldo(cuaderno)
@@ -320,106 +317,6 @@ class VentanaConfiguracion(tk.Toplevel):
         ttk.Label(marco, text="Después de elegir otro micrófono, tocá \"Guardar cambios\".",
                   foreground=estilo.P["suave"]).pack(anchor="w", pady=(18, 0))
 
-    # ------------------------------------------------------------ pendientes
-
-    def _lista_pendientes(self):
-        """La lista que usa el motor (así la ventana y la voz ven lo mismo); si no hay motor, el archivo."""
-        motor = self.app.motor
-        if motor is not None and getattr(motor, "pendientes", None) is not None:
-            return motor.pendientes
-        if self._pendientes_propios is None:
-            self._pendientes_propios = Pendientes(nucleo.BASE / "pendientes.json", avisar=nucleo.log)
-        return self._pendientes_propios
-
-    def _pestana_pendientes(self, cuaderno):
-        cfg = self.app.config
-        marco = ttk.Frame(cuaderno, padding=16)
-        cuaderno.add(marco, text="Pendientes")
-        self._pendientes_propios = None
-        self.var_pend_arranque = tk.BooleanVar(value=cfg.get("pendientes_al_arrancar", True))
-        self.var_pend_insistir = tk.BooleanVar(value=cfg.get("pendientes_insistir", False))
-        self.var_pend_minutos = tk.IntVar(value=int(cfg.get("pendientes_cada_min", 30) or 30))
-        self.var_pend_voz = tk.StringVar(value=cfg.get("pendientes_voz") or VOZ_GENERAL)
-        self.var_pend_nuevo = tk.StringVar(value="")
-
-        ttk.Label(marco, wraplength=800, justify="left", style="Suave.TLabel", text=(
-            "Lynx te lee tus pendientes al arrancar. Por voz: \"Lynx, agregá pendiente comprar pan\", "
-            "\"terminé el dos\", \"qué tengo pendiente\", \"borrá pendiente ...\", "
-            "\"posponé comprar pan una hora\".")).pack(anchor="w", pady=(0, 8))
-        estilo.interruptor(marco, text="Leer los pendientes al arrancar", variable=self.var_pend_arranque
-                           ).pack(anchor="w", pady=3)
-        estilo.interruptor(marco, text="Insistir: repetirlos hasta que los marque como hechos",
-                           variable=self.var_pend_insistir).pack(anchor="w", pady=3)
-        fila = ttk.Frame(marco)
-        fila.pack(anchor="w", pady=3)
-        ttk.Label(fila, text="Cada cuántos minutos insiste (mínimo 5):").pack(side="left", padx=(0, 8))
-        ttk.Spinbox(fila, from_=5, to=240, width=5, textvariable=self.var_pend_minutos).pack(side="left")
-        ttk.Label(marco, text="Voz para leerlos:").pack(anchor="w", pady=(8, 0))
-        self.combo_pend_voz = ttk.Combobox(marco, textvariable=self.var_pend_voz, state="readonly",
-                                           values=[VOZ_GENERAL], width=58)
-        self.combo_pend_voz.pack(anchor="w", pady=4)
-
-        ttk.Separator(marco).pack(fill="x", pady=10)
-        ttk.Label(marco, text="Tu lista", style="Seccion.TLabel").pack(anchor="w")
-        fila_nuevo = ttk.Frame(marco)
-        fila_nuevo.pack(anchor="w", fill="x", pady=4)
-        entrada = ttk.Entry(fila_nuevo, textvariable=self.var_pend_nuevo, width=50)
-        entrada.pack(side="left")
-        entrada.bind("<Return>", lambda e: self._pend_agregar())
-        ttk.Button(fila_nuevo, text="Agregar", command=self._pend_agregar).pack(side="left", padx=8)
-        cuerpo = ttk.Frame(marco)
-        cuerpo.pack(fill="both", expand=True, pady=4)
-        self.tabla_pend = ttk.Treeview(cuerpo, columns=("texto", "estado"), show="headings", height=8)
-        self.tabla_pend.heading("texto", text="Pendiente")
-        self.tabla_pend.heading("estado", text="Estado")
-        self.tabla_pend.column("texto", width=520, anchor="w")
-        self.tabla_pend.column("estado", width=200, anchor="w")
-        self.tabla_pend.pack(side="left", fill="both", expand=True)
-        barra = ttk.Scrollbar(cuerpo, orient="vertical", command=self.tabla_pend.yview)
-        barra.pack(side="right", fill="y")
-        self.tabla_pend.configure(yscrollcommand=barra.set)
-        botones = ttk.Frame(marco)
-        botones.pack(anchor="w", pady=4)
-        ttk.Button(botones, text="Marcar como hecho", command=self._pend_hecho).pack(side="left")
-        ttk.Button(botones, text="Borrar", command=self._pend_borrar).pack(side="left", padx=8)
-        ttk.Label(marco, text="Los ajustes de arriba se aplican con \"Guardar cambios\"; la lista se guarda al instante.",
-                  style="Suave.TLabel").pack(anchor="w", pady=(6, 0))
-        self._pend_refrescar()
-
-    def _pend_refrescar(self):
-        self.tabla_pend.delete(*self.tabla_pend.get_children())
-        for item in self._lista_pendientes().abiertos():
-            hasta = item.get("posponer_hasta")
-            estado = "pospuesto hasta " + hasta.replace("T", " ")[:16] if hasta else "pendiente"
-            self.tabla_pend.insert("", "end", iid=str(item["id"]), values=(item["texto"], estado))
-
-    def _pend_elegido(self):
-        seleccion = self.tabla_pend.selection()
-        if not seleccion:
-            messagebox.showinfo("Pendientes", "Elegí un pendiente de la lista.", parent=self)
-            return None
-        return int(seleccion[0])
-
-    def _pend_agregar(self):
-        texto = self.var_pend_nuevo.get().strip()
-        if not texto:
-            return
-        self._lista_pendientes().agregar(texto)
-        self.var_pend_nuevo.set("")
-        self._pend_refrescar()
-
-    def _pend_hecho(self):
-        id_ = self._pend_elegido()
-        if id_ is not None:
-            self._lista_pendientes().marcar_hecho(id_)
-            self._pend_refrescar()
-
-    def _pend_borrar(self):
-        id_ = self._pend_elegido()
-        if id_ is not None and messagebox.askyesno("Pendientes", "¿Borrar este pendiente?", parent=self):
-            self._lista_pendientes().borrar(id_)
-            self._pend_refrescar()
-
     # ------------------------------------------------------------ respaldo y versión
 
     def _pestana_respaldo(self, cuaderno):
@@ -428,7 +325,7 @@ class VentanaConfiguracion(tk.Toplevel):
         self.var_busqueda = tk.StringVar(value="")
         ttk.Label(marco, text="Copia de seguridad", style="Seccion.TLabel").pack(anchor="w")
         ttk.Label(marco, wraplength=780, justify="left", text=(
-            "Guardá tus comandos, tu configuración y tus pendientes en un archivo para tenerlos a salvo, pasarlos a otra PC "
+            "Guardá tus comandos y tu configuración en un archivo para tenerlos a salvo, pasarlos a otra PC "
             "o recuperarlos si algo sale mal. El archivo no incluye el token de Telegram ni las voces de "
             "personaje. Además, Lynx hace solo una copia por día y antes de cada actualización "
             "(quedan las últimas 10).")).pack(anchor="w", pady=(4, 10))
@@ -481,7 +378,6 @@ class VentanaConfiguracion(tk.Toplevel):
             self.app.aplicar_config(nueva)
             if self.app.motor is not None:
                 self.app.motor.recargar.set()
-                self.app.motor.pendientes.cargar()   # el motor vuelve a leer los pendientes restaurados
         except Exception as error:
             messagebox.showerror("Respaldo", f"No pude restaurar: {error}", parent=self)
             return
@@ -925,14 +821,6 @@ class VentanaConfiguracion(tk.Toplevel):
         voz = self.var_voz_nombre.get()
         nuevo["voz"] = None if voz == VOZ_PREDETERMINADA else voz
         nuevo["voz_velocidad"] = int(self.var_voz_velocidad.get())
-        nuevo["pendientes_al_arrancar"] = self.var_pend_arranque.get()
-        nuevo["pendientes_insistir"] = self.var_pend_insistir.get()
-        try:
-            nuevo["pendientes_cada_min"] = max(5, min(240, int(self.var_pend_minutos.get())))
-        except (tk.TclError, ValueError):
-            nuevo["pendientes_cada_min"] = 30
-        voz_pend = self.var_pend_voz.get()
-        nuevo["pendientes_voz"] = None if voz_pend == VOZ_GENERAL else voz_pend
         salida = self.var_salida.get()
         if salida != self._salida_mostrada:  # solo si la cambiaste vos en esta lista
             nuevo["salida_audio"] = None if salida == SALIDA_PREDETERMINADA else salida
@@ -992,7 +880,6 @@ class VentanaConfiguracion(tk.Toplevel):
             if motor.voces and not self.voces_cargadas:
                 # El motor lista las voces al arrancar; recién entonces se llena el selector.
                 self.combo_voz["values"] = [VOZ_PREDETERMINADA] + list(motor.voces)
-                self.combo_pend_voz["values"] = [VOZ_GENERAL] + list(motor.voces)
                 self.voces_cargadas = True
             if motor.error:
                 texto = "El motor de voz falló: " + motor.error.strip().splitlines()[-1]

@@ -2,19 +2,6 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
-## [1.6] — 2026-11-19
-### Agregado
-- **Pendientes**: Lynx lee en voz alta tus pendientes al arrancar (numerados, hasta cinco y "y N más"); si no hay,
-  no dice nada. Se guardan en `pendientes.json`, todo sin internet.
-- Órdenes por voz (con "Lynx" delante): "agregá pendiente ...", "terminé ...", "qué tengo pendiente",
-  "borrá pendiente ..." (pide confirmación) y "posponé ... una hora". Si dos pendientes se parecen, pregunta
-  cuál; si hay dudas, no toca nada. Tus comandos de siempre tienen prioridad.
-- Modo insistente (opcional): repite los pendientes sin hacer cada X minutos, sin interrumpirte mientras hablás
-  con él.
-- Pestaña **Pendientes** en la ventana: lectura al arrancar, insistencia, voz para leerlos y la lista para agregar,
-  marcar y borrar.
-- Los pendientes entran en las copias de seguridad; las copias viejas siguen restaurándose sin tocar los pendientes.
-
 ## [1.5] — 2026-11-15
 ### Agregado
 - Acción **Apretar teclas**: pulsa teclas o atajos (`enter`, `ctrl+shift+m`...) con códigos físicos de teclado,
