@@ -208,3 +208,14 @@ def test_respuesta_de_cada_tipo_de_comando():
     assert nucleo.respuesta_de_comando({"tipo": "accion_pc", "valor": "copiar"}) == ""
     assert nucleo.respuesta_de_comando({"tipo": "abrir_web"}) == "Abriendo."
     assert nucleo.respuesta_de_comando({"tipo": "apagar"}) == "Apagando la PC."
+
+
+def test_la_lista_del_dialogo_muestra_cada_accion_directamente():
+    """Pedido del usuario: en "¿Qué tiene que hacer?" aparece cada acción, no un tipo genérico con otra lista."""
+    pytest.importorskip("tkinter")
+    import configurar
+    assert "Acción de la PC" not in configurar.OPCIONES_DE_ACCION
+    assert "Energía · Suspender la PC" in configurar.OPCIONES_DE_ACCION
+    assert "Abrir programa" in configurar.OPCIONES_DE_ACCION
+    assert len(configurar.OPCIONES_DE_ACCION) == len(set(configurar.OPCIONES_DE_ACCION)) > 100
+    assert configurar.accion_en_texto({"tipo": "accion_pc", "valor": "suspender"}) == "Suspender la PC"

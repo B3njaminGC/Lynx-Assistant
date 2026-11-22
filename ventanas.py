@@ -16,7 +16,7 @@ import remoto
 import respaldo
 import importar
 import nucleo
-from configurar import TIPOS, Dialogo, valor_en_texto
+from configurar import TIPOS, Dialogo, accion_en_texto, valor_en_texto
 
 TRANSPARENTE = "#010101"  # color que Windows deja invisible alrededor del círculo
 COLORES = {  # estado: (color principal, color del halo)
@@ -251,7 +251,8 @@ class VentanaConfiguracion(tk.Toplevel):
         self.tabla.delete(*self.tabla.get_children())
         for i, c in enumerate(self.comandos):
             self.tabla.insert("", "end", iid=str(i), values=(
-                c["frase"], TIPOS.get(c["tipo"], c["tipo"]), valor_en_texto(c.get("valor", "")),
+                c["frase"], accion_en_texto(c),
+                "" if c.get("tipo") == "accion_pc" else valor_en_texto(c.get("valor", "")),
                 c.get("respuesta") or "(automática)", "Sí" if c.get("confirmar") else "No"))
 
     def _seleccionado(self):

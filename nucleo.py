@@ -116,6 +116,7 @@ RESPUESTAS_POR_DEFECTO = {
     "reproducir_musica": "Poniendo música.",
     "hacer_clic": "",
     "enviar_teclas": "",   # en un juego conviene que no hable: solo habla si le ponés una respuesta
+    "ejecutar_comando": "Listo.",
     "accion_pc": "Listo.",  # cada acción de la PC tiene su propia respuesta (ver acciones_pc.py)
 }
 
@@ -969,6 +970,10 @@ class Motor(threading.Thread):
             teclas.pulsar(valor)
             if respuesta:
                 self.hablar(respuesta)
+        elif tipo == "ejecutar_comando":
+            # Se lanza y se sigue: un script largo no tiene que trabar la escucha.
+            subprocess.Popen(os.path.expandvars(valor), shell=True, creationflags=SIN_VENTANA)
+            self.hablar(respuesta)
         elif tipo == "accion_pc":
             propia = (cmd.get("respuesta") or "").strip() or None   # None = la del catálogo
             acciones_pc.ejecutar(valor, self._entorno_acciones(), propia)

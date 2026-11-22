@@ -24,7 +24,8 @@ TIPOS = {
     "reproducir_musica": "Reproducir canciones en VLC",
     "enviar_teclas": "Apretar teclas (para juegos y programas)",
     "hacer_clic": "Hacer clic en un lugar de la pantalla (ej: botón JUGAR)",
-    "accion_pc": "Acción de la PC (suspender, brillo, ventanas, hora...)",
+    "accion_pc": "Acción de la PC",   # en la lista del diálogo se reemplaza por cada acción por separado
+    "ejecutar_comando": "Ejecutar un comando o script (.bat, .ps1, .py)",
 }
 # Opciones de la acción de música y volumen: nombre que se muestra -> clave que guarda el comando.
 MULTIMEDIA = {
@@ -37,6 +38,8 @@ MULTIMEDIA = {
 }
 MULTIMEDIA_POR_CLAVE = {clave: nombre for nombre, clave in MULTIMEDIA.items()}
 TIPO_POR_NOMBRE = {nombre: clave for clave, nombre in TIPOS.items()}
+# La lista de "¿Qué tiene que hacer?": los tipos de siempre y, después, cada acción de la PC directamente.
+OPCIONES_DE_ACCION = [n for t, n in TIPOS.items() if t != "accion_pc"] + list(acciones_pc.NOMBRES_PARA_VENTANA)
 
 # Etiqueta y ayuda del campo "valor" según el tipo de acción.
 VALOR_AYUDA = {
@@ -50,7 +53,8 @@ VALOR_AYUDA = {
     "tecla_multimedia": "Qué hacer (funciona con Spotify, YouTube y casi cualquier reproductor):",
     "enviar_teclas": "Teclas a apretar, una combinación por línea (ej: enter  o  ctrl+shift+m):",
     "hacer_clic": "Dónde hacer clic: tocá Marcar y poné el mouse sobre el botón durante 5 segundos:",
-    "accion_pc": "Qué hacer (elegí de la lista; están ordenadas por tema):",
+    "accion_pc": "",   # no necesita nada más: la acción ya se eligió arriba
+    "ejecutar_comando": "Comando o archivo a ejecutar (ej: C:\\scripts\\limpiar.bat):",
 }
 CONFIRMAR_POR_DEFECTO = {"cerrar_programa", "cerrar_varios", "apagar"}
 
@@ -72,6 +76,14 @@ def cargar():
 def guardar(comandos):
     with open(ARCHIVO, "w", encoding="utf-8") as f:
         json.dump(comandos, f, ensure_ascii=False, indent=2)
+
+
+def accion_en_texto(cmd):
+    """Lo que se muestra en la columna "Acción" de la lista de comandos."""
+    if cmd.get("tipo") == "accion_pc":
+        accion = acciones_pc.POR_CLAVE.get(cmd.get("valor"))
+        return accion.nombre if accion else "Acción que ya no existe"
+    return TIPOS.get(cmd.get("tipo"), cmd.get("tipo"))
 
 
 def valor_en_texto(valor):
@@ -110,9 +122,9 @@ class Dialogo(tk.Toplevel):
         ttk.Entry(marco, textvariable=self.var_frase, width=50).grid(sticky="we", pady=(0, 10))
 
         ttk.Label(marco, text="¿Qué tiene que hacer?").grid(sticky="w")
-        self.var_tipo = tk.StringVar(value=TIPOS[cmd["tipo"]] if cmd else TIPOS["abrir_programa"])
+        self.var_tipo = tk.StringVar(value=self._nombre_de(cmd) if cmd else TIPOS["abrir_programa"])
         combo = ttk.Combobox(marco, textvariable=self.var_tipo, state="readonly",
-                             values=list(TIPOS.values()), width=47)
+                             values=OPCIONES_DE_ACCION, width=47, height=22)
         combo.grid(sticky="we", pady=(0, 10))
         combo.bind("<<ComboboxSelected>>", lambda e: self.cambio_tipo(True))
 
@@ -132,9 +144,6 @@ class Dialogo(tk.Toplevel):
         self.lbl_posicion = ttk.Label(self.fila_valor, text="")
         self.combo_multimedia = ttk.Combobox(self.fila_valor, values=list(MULTIMEDIA), state="readonly",
                                              width=38)
-        self.combo_accion = ttk.Combobox(self.fila_valor, values=list(acciones_pc.NOMBRES_PARA_VENTANA),
-                                         state="readonly", width=48, height=20)
-        self.combo_accion.bind("<<ComboboxSelected>>", lambda e: self._cambio_accion())
 
         ttk.Label(marco, text="Qué dice el asistente al hacerlo (opcional):").grid(sticky="w")
         self.var_respuesta = tk.StringVar(value=cmd.get("respuesta", "") if cmd else "")
@@ -162,8 +171,7 @@ class Dialogo(tk.Toplevel):
             elif cmd["tipo"] == "tecla_multimedia":
                 self.combo_multimedia.set(MULTIMEDIA_POR_CLAVE.get(valor, ""))
             elif cmd["tipo"] == "accion_pc":
-                accion = acciones_pc.POR_CLAVE.get(valor)
-                self.combo_accion.set(acciones_pc.nombre_para_ventana(accion) if accion else "")
+                pass   # la acción ya quedó elegida arriba
             else:
                 self.var_valor.set(valor)
 
@@ -171,13 +179,23 @@ class Dialogo(tk.Toplevel):
         self.wait_visibility()
         self.focus_force()
 
+    @staticmethod
+    def _nombre_de(cmd):
+        """Lo que se ve elegido en la lista para ese comando."""
+        if cmd["tipo"] == "accion_pc":
+            accion = acciones_pc.POR_CLAVE.get(cmd.get("valor"))
+            if accion is not None:
+                return acciones_pc.nombre_para_ventana(accion)
+        return TIPOS.get(cmd["tipo"], TIPOS["abrir_programa"])
+
     def tipo_actual(self):
-        return TIPO_POR_NOMBRE[self.var_tipo.get()]
+        elegido = self.var_tipo.get()
+        return "accion_pc" if elegido in acciones_pc.NOMBRES_PARA_VENTANA else TIPO_POR_NOMBRE[elegido]
 
     def cambio_tipo(self, es_cambio_del_usuario):
         tipo = self.tipo_actual()
         self.lbl_valor.config(text=VALOR_AYUDA[tipo])
-        for w in (self.ent_valor, self.btn_buscar, self.txt_valor, self.combo_multimedia, self.combo_accion,
+        for w in (self.ent_valor, self.btn_buscar, self.txt_valor, self.combo_multimedia,
                   self.btn_canciones, self.btn_carpeta, self.btn_marcar, self.lbl_posicion):
             w.grid_forget()
         if tipo == "hacer_clic":
@@ -197,9 +215,6 @@ class Dialogo(tk.Toplevel):
             if not self.combo_multimedia.get():
                 self.combo_multimedia.set(next(iter(MULTIMEDIA)))
         elif tipo == "accion_pc":
-            self.combo_accion.grid(row=0, column=0, sticky="we")
-            if not self.combo_accion.get():
-                self.combo_accion.set(next(iter(acciones_pc.NOMBRES_PARA_VENTANA)))
             if es_cambio_del_usuario:
                 self._cambio_accion()
             return
@@ -212,7 +227,7 @@ class Dialogo(tk.Toplevel):
 
     def _cambio_accion(self):
         """Al elegir una acción: sugiere la frase (si todavía no escribiste una) y si pide confirmación."""
-        accion = acciones_pc.POR_CLAVE.get(acciones_pc.NOMBRES_PARA_VENTANA.get(self.combo_accion.get(), ""))
+        accion = acciones_pc.POR_CLAVE.get(acciones_pc.NOMBRES_PARA_VENTANA.get(self.var_tipo.get(), ""))
         if accion is None:
             return
         if not self.var_frase.get().strip():
@@ -271,7 +286,7 @@ class Dialogo(tk.Toplevel):
         elif tipo == "tecla_multimedia":
             valor = MULTIMEDIA.get(self.combo_multimedia.get(), "")
         elif tipo == "accion_pc":
-            valor = acciones_pc.NOMBRES_PARA_VENTANA.get(self.combo_accion.get(), "")
+            valor = acciones_pc.NOMBRES_PARA_VENTANA.get(self.var_tipo.get(), "")
         elif tipo == "reproducir_musica":
             valor = [l.strip().strip('"') for l in self.txt_valor.get("1.0", "end").splitlines() if l.strip()]
         elif tipo == "hacer_clic":
@@ -295,7 +310,7 @@ class Dialogo(tk.Toplevel):
             if tipo == "cerrar_programa" and valor and not valor.lower().endswith(".exe"):
                 valor += ".exe"
 
-        if tipo != "apagar" and not valor:
+        if tipo not in ("apagar", "accion_pc") and not valor:
             messagebox.showwarning("Falta algo", "Completá el campo de abajo.", parent=self)
             return
 
@@ -336,7 +351,7 @@ class Ventana(tk.Tk):
 
         botones = ttk.Frame(marco)
         botones.grid(row=2, column=0, columnspan=2, sticky="w", pady=(10, 0))
-        ttk.Button(botones, text="Add", command=self.agregar).grid(row=0, column=0, padx=(0, 6))
+        ttk.Button(botones, text="Agregar", command=self.agregar).grid(row=0, column=0, padx=(0, 6))
         ttk.Button(botones, text="Editar", command=self.editar).grid(row=0, column=1, padx=6)
         ttk.Button(botones, text="Borrar", command=self.borrar).grid(row=0, column=2, padx=6)
 
@@ -346,7 +361,8 @@ class Ventana(tk.Tk):
         self.tabla.delete(*self.tabla.get_children())
         for i, c in enumerate(self.comandos):
             self.tabla.insert("", "end", iid=str(i), values=(
-                c["frase"], TIPOS.get(c["tipo"], c["tipo"]), valor_en_texto(c.get("valor", "")),
+                c["frase"], accion_en_texto(c),
+                "" if c.get("tipo") == "accion_pc" else valor_en_texto(c.get("valor", "")),
                 "Sí" if c.get("confirmar") else "No"))
 
     def seleccionado(self):
