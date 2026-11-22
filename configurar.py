@@ -226,13 +226,10 @@ class Dialogo(tk.Toplevel):
             self.var_confirmar.set(tipo in CONFIRMAR_POR_DEFECTO)
 
     def _cambio_accion(self):
-        """Al elegir una acción: sugiere la frase (si todavía no escribiste una) y si pide confirmación."""
+        """Al elegir una acción: marca si pide confirmación (reiniciar, cerrar sesión...)."""
         accion = acciones_pc.POR_CLAVE.get(acciones_pc.NOMBRES_PARA_VENTANA.get(self.var_tipo.get(), ""))
-        if accion is None:
-            return
-        if not self.var_frase.get().strip():
-            self.var_frase.set(accion.frase)
-        self.var_confirmar.set(accion.confirmar)
+        if accion is not None:
+            self.var_confirmar.set(accion.confirmar)
 
     def marcar_posicion(self, restantes=5):
         """Cuenta regresiva para que lleves el mouse al botón; después anota dónde quedó."""

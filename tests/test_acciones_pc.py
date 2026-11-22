@@ -33,8 +33,6 @@ def test_el_catalogo_esta_bien_armado():
     for a in acciones_pc.CATALOGO:
         modo, dato = a.como
         assert modo in {"teclas", "abrir", "correr", "powershell", "funcion", "informe", "temporizador"}, a.clave
-        assert a.frase and a.frase == a.frase.lower(), a.clave
-        assert not any(c in a.frase for c in "áéíóúü¿?¡!,."), f"la frase va sin tildes ni signos: {a.clave}"
 
 
 def test_las_teclas_del_catalogo_existen():
@@ -51,38 +49,10 @@ def test_las_funciones_e_informes_existen():
             assert a.como[1] in acciones_pc.INFORMES, a.clave
 
 
-def test_decir_cada_frase_sugerida_ejecuta_su_propia_accion():
-    """Con todos los sugeridos cargados, cada frase tiene que llevar a su acción (no a otra parecida)."""
-    comandos = []
-    for c in acciones_pc.comandos_sugeridos([]):
-        c = dict(c)
-        c["frase"] = nucleo.sin_tildes(c["frase"])
-        comandos.append(c)
-    comandos.sort(key=lambda c: len(c["frase"]), reverse=True)
-    for c in comandos:
-        hallado = nucleo.buscar_comando(c["frase"], comandos)
-        assert hallado["valor"] == c["valor"], f"'{c['frase']}' lleva a {hallado['valor']}"
-        hallado = nucleo.buscar_comando("lynx " + c["frase"] + " por favor", comandos)
-        assert hallado["valor"] == c["valor"]
-
-
-def test_sugeridos_no_pisan_lo_tuyo():
-    tuyos = [{"frase": "Suspendé la computadora", "tipo": "abrir_web", "valor": "x"},
-             {"frase": "mi frase", "tipo": "accion_pc", "valor": "reiniciar"}]
-    nuevos = acciones_pc.comandos_sugeridos(tuyos)
-    claves = {c["valor"] for c in nuevos}
-    assert "suspender" not in claves      # esa frase ya la usás para otra cosa
-    assert "reiniciar" not in claves      # esa acción ya la tenés con otra frase
-    assert len(claves) == len(nuevos) > 90
-    assert acciones_pc.comandos_sugeridos(tuyos + nuevos) == []
-
-
 def test_las_acciones_peligrosas_piden_confirmacion():
     for clave in ("reiniciar", "cerrar_sesion", "vaciar_papelera", "cerrar_ventana", "reiniciar_explorador"):
         assert acciones_pc.POR_CLAVE[clave].confirmar, clave
-    sugeridos = {c["valor"]: c for c in acciones_pc.comandos_sugeridos([])}
-    assert sugeridos["reiniciar"]["confirmar"] is True
-    assert sugeridos["suspender"]["confirmar"] is False
+    assert not acciones_pc.POR_CLAVE["suspender"].confirmar
 
 
 def test_ejecutar_por_teclas_abrir_y_correr():

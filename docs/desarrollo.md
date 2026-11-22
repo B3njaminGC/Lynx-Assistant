@@ -50,7 +50,6 @@ anterior. Si el cambio suma librerías nuevas, hace falta un release completo co
 ## Agregar una acción de la PC
 
 Las acciones del tipo "Acción de la PC" están todas en `acciones_pc.py`, en la tabla `CATALOGO`: una línea por acción
-(clave, grupo, nombre, cómo se hace, qué dice, frase sugerida, ¿pide confirmación?). Para sumar una de teclas o de
+(clave, grupo, nombre, cómo se hace, qué dice, ¿pide confirmación?). Para sumar una de teclas o de
 "abrir" alcanza con una línea nueva; para algo más especial se agrega una función en `FUNCIONES` o `INFORMES`.
-`tests/test_acciones_pc.py` revisa solo que las teclas existan, que no se repitan claves ni frases, y que cada
-frase sugerida lleve a su propia acción.
+`tests/test_acciones_pc.py` revisa que las teclas existan y que no se repitan claves.

@@ -3,7 +3,7 @@ Acciones de la PC que se pueden elegir con un clic (tipo de comando "Acción de 
 
 Cada acción es una fila de la tabla CATALOGO, así que agregar una nueva es agregar una línea:
 
-    (clave, grupo, nombre en la ventana, cómo se hace, qué dice, frase sugerida, ¿pide confirmación?)
+    (clave, grupo, nombre en la ventana, cómo se hace, qué dice, ¿pide confirmación?)
 
 "Cómo se hace" es un par (modo, dato):
     ("teclas", "win+d")            aprieta esa combinación (mismos nombres que "Apretar teclas")
@@ -26,13 +26,13 @@ import time
 from collections import namedtuple
 from datetime import datetime
 
-Accion = namedtuple("Accion", "clave grupo nombre como respuesta frase confirmar")
+Accion = namedtuple("Accion", "clave grupo nombre como respuesta confirmar")
 
 SIN_VENTANA = 0x08000000 if sys.platform == "win32" else 0
 
 
-def _a(clave, grupo, nombre, como, respuesta, frase, confirmar=False):
-    return Accion(clave, grupo, nombre, como, respuesta, frase, confirmar)
+def _a(clave, grupo, nombre, como, respuesta, confirmar=False):
+    return Accion(clave, grupo, nombre, como, respuesta, confirmar)
 
 
 ENERGIA = "Energía"
@@ -49,178 +49,143 @@ TEMPORIZADOR = "Temporizador"
 
 CATALOGO = [
     # ------------------------------------------------------------------ energía
-    _a("suspender", ENERGIA, "Suspender la PC", ("funcion", "suspender"), "Suspendiendo.", "suspende la computadora"),
-    _a("hibernar", ENERGIA, "Hibernar la PC", ("correr", ["shutdown", "/h"]), "Hibernando.", "hiberna la computadora"),
-    _a("reiniciar", ENERGIA, "Reiniciar la PC", ("correr", ["shutdown", "/r", "/t", "0"]), "Reiniciando la PC.",
-       "reinicia la computadora", True),
+    _a("suspender", ENERGIA, "Suspender la PC", ("funcion", "suspender"), "Suspendiendo."),
+    _a("hibernar", ENERGIA, "Hibernar la PC", ("correr", ["shutdown", "/h"]), "Hibernando."),
+    _a("reiniciar", ENERGIA, "Reiniciar la PC", ("correr", ["shutdown", "/r", "/t", "0"]), "Reiniciando la PC.", True),
     _a("cerrar_sesion", ENERGIA, "Cerrar la sesión de Windows", ("correr", ["shutdown", "/l"]),
-       "Cerrando la sesión.", "cierra la sesion", True),
+       "Cerrando la sesión.", True),
     _a("bloquear", ENERGIA, "Bloquear la PC", ("correr", ["rundll32.exe", "user32.dll,LockWorkStation"]),
-       "Bloqueando.", "bloquea la computadora"),
-    _a("apagar_pantalla", ENERGIA, "Apagar solo la pantalla", ("funcion", "apagar_pantalla"), "", "apaga la pantalla"),
+       "Bloqueando."),
+    _a("apagar_pantalla", ENERGIA, "Apagar solo la pantalla", ("funcion", "apagar_pantalla"), ""),
     _a("apagar_en_media_hora", ENERGIA, "Apagar la PC en 30 minutos", ("correr", ["shutdown", "/s", "/t", "1800"]),
-       "Listo, la PC se apaga en media hora.", "apaga la computadora en media hora"),
+       "Listo, la PC se apaga en media hora."),
     _a("apagar_en_una_hora", ENERGIA, "Apagar la PC en 1 hora", ("correr", ["shutdown", "/s", "/t", "3600"]),
-       "Listo, la PC se apaga en una hora.", "apaga la computadora en una hora"),
+       "Listo, la PC se apaga en una hora."),
     _a("cancelar_apagado", ENERGIA, "Cancelar un apagado programado", ("correr", ["shutdown", "/a"]),
-       "Listo, cancelé el apagado.", "cancela el apagado programado"),
+       "Listo, cancelé el apagado."),
 
     # ------------------------------------------------------------------ ventanas
-    _a("mostrar_escritorio", VENTANAS, "Mostrar el escritorio", ("teclas", "win+d"), "", "muestra el escritorio"),
-    _a("cambiar_ventana", VENTANAS, "Cambiar de ventana", ("teclas", "alt+tab"), "", "cambia de ventana"),
-    _a("vista_tareas", VENTANAS, "Ver todas las ventanas", ("teclas", "win+tab"), "", "muestra todas las ventanas"),
-    _a("cerrar_ventana", VENTANAS, "Cerrar la ventana actual", ("teclas", "alt+f4"), "", "cierra esta ventana", True),
-    _a("maximizar", VENTANAS, "Maximizar la ventana", ("teclas", "win+arriba"), "", "maximiza la ventana"),
-    _a("minimizar", VENTANAS, "Minimizar la ventana", ("teclas", "win+abajo"), "", "minimiza la ventana"),
-    _a("ventana_izquierda", VENTANAS, "Ventana a la mitad izquierda", ("teclas", "win+izquierda"), "",
-       "ventana a la izquierda"),
-    _a("ventana_derecha", VENTANAS, "Ventana a la mitad derecha", ("teclas", "win+derecha"), "",
-       "ventana a la derecha"),
-    _a("pantalla_completa", VENTANAS, "Pantalla completa (F11)", ("teclas", "f11"), "", "pantalla completa"),
-    _a("escritorio_nuevo", VENTANAS, "Nuevo escritorio virtual", ("teclas", "win+ctrl+d"), "", "nuevo escritorio"),
-    _a("escritorio_siguiente", VENTANAS, "Escritorio virtual siguiente", ("teclas", "win+ctrl+derecha"), "",
-       "escritorio siguiente"),
-    _a("escritorio_anterior", VENTANAS, "Escritorio virtual anterior", ("teclas", "win+ctrl+izquierda"), "",
-       "escritorio anterior"),
-    _a("proyectar", VENTANAS, "Proyectar a otra pantalla", ("teclas", "win+p"), "", "proyecta la pantalla"),
-    _a("buscador", VENTANAS, "Abrir el buscador de Windows", ("teclas", "win+s"), "", "abre el buscador"),
-    _a("notificaciones", VENTANAS, "Abrir las notificaciones", ("teclas", "win+n"), "", "muestra las notificaciones"),
+    _a("mostrar_escritorio", VENTANAS, "Mostrar el escritorio", ("teclas", "win+d"), ""),
+    _a("cambiar_ventana", VENTANAS, "Cambiar de ventana", ("teclas", "alt+tab"), ""),
+    _a("vista_tareas", VENTANAS, "Ver todas las ventanas", ("teclas", "win+tab"), ""),
+    _a("cerrar_ventana", VENTANAS, "Cerrar la ventana actual", ("teclas", "alt+f4"), "", True),
+    _a("maximizar", VENTANAS, "Maximizar la ventana", ("teclas", "win+arriba"), ""),
+    _a("minimizar", VENTANAS, "Minimizar la ventana", ("teclas", "win+abajo"), ""),
+    _a("ventana_izquierda", VENTANAS, "Ventana a la mitad izquierda", ("teclas", "win+izquierda"), ""),
+    _a("ventana_derecha", VENTANAS, "Ventana a la mitad derecha", ("teclas", "win+derecha"), ""),
+    _a("pantalla_completa", VENTANAS, "Pantalla completa (F11)", ("teclas", "f11"), ""),
+    _a("escritorio_nuevo", VENTANAS, "Nuevo escritorio virtual", ("teclas", "win+ctrl+d"), ""),
+    _a("escritorio_siguiente", VENTANAS, "Escritorio virtual siguiente", ("teclas", "win+ctrl+derecha"), ""),
+    _a("escritorio_anterior", VENTANAS, "Escritorio virtual anterior", ("teclas", "win+ctrl+izquierda"), ""),
+    _a("proyectar", VENTANAS, "Proyectar a otra pantalla", ("teclas", "win+p"), ""),
+    _a("buscador", VENTANAS, "Abrir el buscador de Windows", ("teclas", "win+s"), ""),
+    _a("notificaciones", VENTANAS, "Abrir las notificaciones", ("teclas", "win+n"), ""),
 
     # ------------------------------------------------------------------ captura y grabación
-    _a("captura_recorte", CAPTURA, "Captura de pantalla (recorte)", ("teclas", "win+shift+s"), "",
-       "captura de pantalla"),
-    _a("grabar_pantalla", CAPTURA, "Grabar la pantalla (Barra de juegos)", ("teclas", "win+alt+r"), "",
-       "graba la pantalla"),
-    _a("barra_juegos", CAPTURA, "Abrir la Barra de juegos", ("teclas", "win+g"), "", "abre la barra de juegos"),
-    _a("historial_portapapeles", CAPTURA, "Historial del portapapeles", ("teclas", "win+v"), "",
-       "historial del portapapeles"),
-    _a("dictado", CAPTURA, "Dictado de Windows", ("teclas", "win+h"), "", "activa el dictado"),
+    _a("captura_recorte", CAPTURA, "Captura de pantalla (recorte)", ("teclas", "win+shift+s"), ""),
+    _a("grabar_pantalla", CAPTURA, "Grabar la pantalla (Barra de juegos)", ("teclas", "win+alt+r"), ""),
+    _a("barra_juegos", CAPTURA, "Abrir la Barra de juegos", ("teclas", "win+g"), ""),
+    _a("historial_portapapeles", CAPTURA, "Historial del portapapeles", ("teclas", "win+v"), ""),
+    _a("dictado", CAPTURA, "Dictado de Windows", ("teclas", "win+h"), ""),
 
     # ------------------------------------------------------------------ edición y navegador
-    _a("copiar", EDICION, "Copiar", ("teclas", "ctrl+c"), "", "copia esto"),
-    _a("pegar", EDICION, "Pegar", ("teclas", "ctrl+v"), "", "pega esto"),
-    _a("cortar", EDICION, "Cortar", ("teclas", "ctrl+x"), "", "corta esto"),
-    _a("seleccionar_todo", EDICION, "Seleccionar todo", ("teclas", "ctrl+a"), "", "selecciona todo"),
-    _a("deshacer", EDICION, "Deshacer", ("teclas", "ctrl+z"), "", "deshace eso"),
-    _a("rehacer", EDICION, "Rehacer", ("teclas", "ctrl+y"), "", "rehace eso"),
-    _a("guardar", EDICION, "Guardar", ("teclas", "ctrl+s"), "", "guarda el archivo"),
-    _a("apretar_enter", EDICION, "Apretar Enter", ("teclas", "enter"), "", "aprieta enter"),
-    _a("apretar_escape", EDICION, "Apretar Escape", ("teclas", "esc"), "", "aprieta escape"),
-    _a("nueva_pestana", EDICION, "Nueva pestaña", ("teclas", "ctrl+t"), "", "nueva pestana"),
-    _a("cerrar_pestana", EDICION, "Cerrar la pestaña", ("teclas", "ctrl+w"), "", "cierra la pestana"),
-    _a("reabrir_pestana", EDICION, "Reabrir la última pestaña", ("teclas", "ctrl+shift+t"), "",
-       "reabre la pestana"),
-    _a("pestana_siguiente", EDICION, "Pestaña siguiente", ("teclas", "ctrl+tab"), "", "pestana siguiente"),
-    _a("pestana_anterior", EDICION, "Pestaña anterior", ("teclas", "ctrl+shift+tab"), "", "pestana anterior"),
-    _a("recargar", EDICION, "Recargar la página", ("teclas", "f5"), "", "recarga la pagina"),
-    _a("volver_atras", EDICION, "Volver atrás en el navegador", ("teclas", "alt+izquierda"), "", "volve atras"),
-    _a("buscar_en_pagina", EDICION, "Buscar dentro de la página", ("teclas", "ctrl+f"), "",
-       "busca en la pagina"),
+    _a("copiar", EDICION, "Copiar", ("teclas", "ctrl+c"), ""),
+    _a("pegar", EDICION, "Pegar", ("teclas", "ctrl+v"), ""),
+    _a("cortar", EDICION, "Cortar", ("teclas", "ctrl+x"), ""),
+    _a("seleccionar_todo", EDICION, "Seleccionar todo", ("teclas", "ctrl+a"), ""),
+    _a("deshacer", EDICION, "Deshacer", ("teclas", "ctrl+z"), ""),
+    _a("rehacer", EDICION, "Rehacer", ("teclas", "ctrl+y"), ""),
+    _a("guardar", EDICION, "Guardar", ("teclas", "ctrl+s"), ""),
+    _a("apretar_enter", EDICION, "Apretar Enter", ("teclas", "enter"), ""),
+    _a("apretar_escape", EDICION, "Apretar Escape", ("teclas", "esc"), ""),
+    _a("nueva_pestana", EDICION, "Nueva pestaña", ("teclas", "ctrl+t"), ""),
+    _a("cerrar_pestana", EDICION, "Cerrar la pestaña", ("teclas", "ctrl+w"), ""),
+    _a("reabrir_pestana", EDICION, "Reabrir la última pestaña", ("teclas", "ctrl+shift+t"), ""),
+    _a("pestana_siguiente", EDICION, "Pestaña siguiente", ("teclas", "ctrl+tab"), ""),
+    _a("pestana_anterior", EDICION, "Pestaña anterior", ("teclas", "ctrl+shift+tab"), ""),
+    _a("recargar", EDICION, "Recargar la página", ("teclas", "f5"), ""),
+    _a("volver_atras", EDICION, "Volver atrás en el navegador", ("teclas", "alt+izquierda"), ""),
+    _a("buscar_en_pagina", EDICION, "Buscar dentro de la página", ("teclas", "ctrl+f"), ""),
 
     # ------------------------------------------------------------------ volumen y brillo
-    _a("volumen_maximo", VOLUMEN, "Volumen al máximo", ("funcion", "volumen_maximo"), "", "volumen al maximo"),
-    _a("volumen_medio", VOLUMEN, "Volumen a la mitad", ("funcion", "volumen_medio"), "", "volumen a la mitad"),
-    _a("volumen_bajo", VOLUMEN, "Volumen bajito", ("funcion", "volumen_bajo"), "", "volumen bajito"),
-    _a("brillo_subir", VOLUMEN, "Subir el brillo", ("funcion", "brillo_subir"), "", "sube el brillo"),
-    _a("brillo_bajar", VOLUMEN, "Bajar el brillo", ("funcion", "brillo_bajar"), "", "baja el brillo"),
-    _a("brillo_maximo", VOLUMEN, "Brillo al máximo", ("funcion", "brillo_maximo"), "", "brillo al maximo"),
-    _a("brillo_medio", VOLUMEN, "Brillo a la mitad", ("funcion", "brillo_medio"), "", "brillo a la mitad"),
-    _a("brillo_minimo", VOLUMEN, "Brillo al mínimo", ("funcion", "brillo_minimo"), "", "brillo al minimo"),
+    _a("volumen_maximo", VOLUMEN, "Volumen al máximo", ("funcion", "volumen_maximo"), ""),
+    _a("volumen_medio", VOLUMEN, "Volumen a la mitad", ("funcion", "volumen_medio"), ""),
+    _a("volumen_bajo", VOLUMEN, "Volumen bajito", ("funcion", "volumen_bajo"), ""),
+    _a("brillo_subir", VOLUMEN, "Subir el brillo", ("funcion", "brillo_subir"), ""),
+    _a("brillo_bajar", VOLUMEN, "Bajar el brillo", ("funcion", "brillo_bajar"), ""),
+    _a("brillo_maximo", VOLUMEN, "Brillo al máximo", ("funcion", "brillo_maximo"), ""),
+    _a("brillo_medio", VOLUMEN, "Brillo a la mitad", ("funcion", "brillo_medio"), ""),
+    _a("brillo_minimo", VOLUMEN, "Brillo al mínimo", ("funcion", "brillo_minimo"), ""),
 
     # ------------------------------------------------------------------ apariencia y limpieza
-    _a("modo_oscuro", SISTEMA, "Activar el modo oscuro", ("funcion", "modo_oscuro"), "Modo oscuro activado.",
-       "activa el modo oscuro"),
-    _a("modo_claro", SISTEMA, "Activar el modo claro", ("funcion", "modo_claro"), "Modo claro activado.",
-       "activa el modo claro"),
+    _a("modo_oscuro", SISTEMA, "Activar el modo oscuro", ("funcion", "modo_oscuro"), "Modo oscuro activado."),
+    _a("modo_claro", SISTEMA, "Activar el modo claro", ("funcion", "modo_claro"), "Modo claro activado."),
     _a("vaciar_papelera", SISTEMA, "Vaciar la papelera",
-       ("powershell", "Clear-RecycleBin -Force -ErrorAction SilentlyContinue"), "Listo, vacié la papelera.",
-       "vacia la papelera", True),
+       ("powershell", "Clear-RecycleBin -Force -ErrorAction SilentlyContinue"), "Listo, vacié la papelera.", True),
     _a("reiniciar_explorador", SISTEMA, "Reiniciar el Explorador (si Windows se traba)",
-       ("powershell", "Stop-Process -Name explorer -Force"), "Listo.", "reinicia el explorador", True),
+       ("powershell", "Stop-Process -Name explorer -Force"), "Listo.", True),
 
     # ------------------------------------------------------------------ programas de Windows
-    _a("administrador_tareas", PROGRAMAS, "Administrador de tareas", ("abrir", "taskmgr"), "Abriendo.",
-       "abre el administrador de tareas"),
-    _a("explorador", PROGRAMAS, "Explorador de archivos", ("abrir", "explorer"), "Abriendo.",
-       "abre el explorador de archivos"),
-    _a("calculadora", PROGRAMAS, "Calculadora", ("abrir", "calc"), "Abriendo.", "abre la calculadora"),
-    _a("bloc_de_notas", PROGRAMAS, "Bloc de notas", ("abrir", "notepad"), "Abriendo.", "abre el bloc de notas"),
-    _a("paint", PROGRAMAS, "Paint", ("abrir", "mspaint"), "Abriendo.", "abre paint"),
-    _a("simbolo_del_sistema", PROGRAMAS, "Símbolo del sistema", ("abrir", "cmd"), "Abriendo.",
-       "abre el simbolo del sistema"),
-    _a("powershell", PROGRAMAS, "PowerShell", ("abrir", "powershell"), "Abriendo.", "abre powershell"),
-    _a("panel_de_control", PROGRAMAS, "Panel de control", ("abrir", "control"), "Abriendo.",
-       "abre el panel de control"),
+    _a("administrador_tareas", PROGRAMAS, "Administrador de tareas", ("abrir", "taskmgr"), "Abriendo."),
+    _a("explorador", PROGRAMAS, "Explorador de archivos", ("abrir", "explorer"), "Abriendo."),
+    _a("calculadora", PROGRAMAS, "Calculadora", ("abrir", "calc"), "Abriendo."),
+    _a("bloc_de_notas", PROGRAMAS, "Bloc de notas", ("abrir", "notepad"), "Abriendo."),
+    _a("paint", PROGRAMAS, "Paint", ("abrir", "mspaint"), "Abriendo."),
+    _a("simbolo_del_sistema", PROGRAMAS, "Símbolo del sistema", ("abrir", "cmd"), "Abriendo."),
+    _a("powershell", PROGRAMAS, "PowerShell", ("abrir", "powershell"), "Abriendo."),
+    _a("panel_de_control", PROGRAMAS, "Panel de control", ("abrir", "control"), "Abriendo."),
     _a("administrador_dispositivos", PROGRAMAS, "Administrador de dispositivos", ("abrir", "devmgmt.msc"),
-       "Abriendo.", "abre el administrador de dispositivos"),
-    _a("monitor_recursos", PROGRAMAS, "Monitor de recursos", ("abrir", "resmon"), "Abriendo.",
-       "abre el monitor de recursos"),
-    _a("info_sistema", PROGRAMAS, "Información del sistema", ("abrir", "msinfo32"), "Abriendo.",
-       "abre la informacion del sistema"),
-    _a("tienda", PROGRAMAS, "Microsoft Store", ("abrir", "ms-windows-store:"), "Abriendo.", "abre la tienda"),
-    _a("camara", PROGRAMAS, "Cámara", ("abrir", "microsoft.windows.camera:"), "Abriendo.", "abre la camara"),
-    _a("reloj", PROGRAMAS, "Reloj y alarmas", ("abrir", "ms-clock:"), "Abriendo.", "abre el reloj"),
-    _a("fotos", PROGRAMAS, "Fotos", ("abrir", "ms-photos:"), "Abriendo.", "abre las fotos"),
-    _a("seguridad_windows", PROGRAMAS, "Seguridad de Windows", ("abrir", "windowsdefender:"), "Abriendo.",
-       "abre la seguridad de windows"),
+       "Abriendo."),
+    _a("monitor_recursos", PROGRAMAS, "Monitor de recursos", ("abrir", "resmon"), "Abriendo."),
+    _a("info_sistema", PROGRAMAS, "Información del sistema", ("abrir", "msinfo32"), "Abriendo."),
+    _a("tienda", PROGRAMAS, "Microsoft Store", ("abrir", "ms-windows-store:"), "Abriendo."),
+    _a("camara", PROGRAMAS, "Cámara", ("abrir", "microsoft.windows.camera:"), "Abriendo."),
+    _a("reloj", PROGRAMAS, "Reloj y alarmas", ("abrir", "ms-clock:"), "Abriendo."),
+    _a("fotos", PROGRAMAS, "Fotos", ("abrir", "ms-photos:"), "Abriendo."),
+    _a("seguridad_windows", PROGRAMAS, "Seguridad de Windows", ("abrir", "windowsdefender:"), "Abriendo."),
 
     # ------------------------------------------------------------------ ajustes de Windows
-    _a("ajustes", AJUSTES, "Configuración de Windows", ("abrir", "ms-settings:"), "Abriendo.",
-       "abre la configuracion de windows"),
-    _a("ajustes_sonido", AJUSTES, "Ajustes de sonido", ("abrir", "ms-settings:sound"), "Abriendo.",
-       "abre los ajustes de sonido"),
-    _a("ajustes_pantalla", AJUSTES, "Ajustes de pantalla", ("abrir", "ms-settings:display"), "Abriendo.",
-       "abre los ajustes de pantalla"),
-    _a("ajustes_wifi", AJUSTES, "Ajustes de Wi-Fi", ("abrir", "ms-settings:network-wifi"), "Abriendo.",
-       "abre los ajustes de wifi"),
-    _a("ajustes_bluetooth", AJUSTES, "Ajustes de Bluetooth", ("abrir", "ms-settings:bluetooth"), "Abriendo.",
-       "abre los ajustes de bluetooth"),
-    _a("ajustes_bateria", AJUSTES, "Ajustes de batería", ("abrir", "ms-settings:batterysaver"), "Abriendo.",
-       "abre los ajustes de bateria"),
-    _a("ajustes_actualizaciones", AJUSTES, "Windows Update", ("abrir", "ms-settings:windowsupdate"), "Abriendo.",
-       "abre las actualizaciones de windows"),
+    _a("ajustes", AJUSTES, "Configuración de Windows", ("abrir", "ms-settings:"), "Abriendo."),
+    _a("ajustes_sonido", AJUSTES, "Ajustes de sonido", ("abrir", "ms-settings:sound"), "Abriendo."),
+    _a("ajustes_pantalla", AJUSTES, "Ajustes de pantalla", ("abrir", "ms-settings:display"), "Abriendo."),
+    _a("ajustes_wifi", AJUSTES, "Ajustes de Wi-Fi", ("abrir", "ms-settings:network-wifi"), "Abriendo."),
+    _a("ajustes_bluetooth", AJUSTES, "Ajustes de Bluetooth", ("abrir", "ms-settings:bluetooth"), "Abriendo."),
+    _a("ajustes_bateria", AJUSTES, "Ajustes de batería", ("abrir", "ms-settings:batterysaver"), "Abriendo."),
+    _a("ajustes_actualizaciones", AJUSTES, "Windows Update", ("abrir", "ms-settings:windowsupdate"), "Abriendo."),
     _a("ajustes_aplicaciones", AJUSTES, "Programas instalados", ("abrir", "ms-settings:appsfeatures"),
-       "Abriendo.", "abre los programas instalados"),
+       "Abriendo."),
 
     # ------------------------------------------------------------------ carpetas
-    _a("carpeta_descargas", CARPETAS, "Carpeta Descargas", ("abrir", "shell:Downloads"), "Abriendo.",
-       "abre mis descargas"),
-    _a("carpeta_documentos", CARPETAS, "Carpeta Documentos", ("abrir", "shell:Personal"), "Abriendo.",
-       "abre mis documentos"),
-    _a("carpeta_escritorio", CARPETAS, "Carpeta Escritorio", ("abrir", "shell:Desktop"), "Abriendo.",
-       "abre la carpeta del escritorio"),
-    _a("carpeta_imagenes", CARPETAS, "Carpeta Imágenes", ("abrir", "shell:My Pictures"), "Abriendo.",
-       "abre mis imagenes"),
-    _a("carpeta_musica", CARPETAS, "Carpeta Música", ("abrir", "shell:My Music"), "Abriendo.", "abre mi musica"),
-    _a("carpeta_videos", CARPETAS, "Carpeta Videos", ("abrir", "shell:My Video"), "Abriendo.", "abre mis videos"),
-    _a("abrir_papelera", CARPETAS, "Abrir la papelera", ("abrir", "shell:RecycleBinFolder"), "Abriendo.",
-       "abre la papelera"),
+    _a("carpeta_descargas", CARPETAS, "Carpeta Descargas", ("abrir", "shell:Downloads"), "Abriendo."),
+    _a("carpeta_documentos", CARPETAS, "Carpeta Documentos", ("abrir", "shell:Personal"), "Abriendo."),
+    _a("carpeta_escritorio", CARPETAS, "Carpeta Escritorio", ("abrir", "shell:Desktop"), "Abriendo."),
+    _a("carpeta_imagenes", CARPETAS, "Carpeta Imágenes", ("abrir", "shell:My Pictures"), "Abriendo."),
+    _a("carpeta_musica", CARPETAS, "Carpeta Música", ("abrir", "shell:My Music"), "Abriendo."),
+    _a("carpeta_videos", CARPETAS, "Carpeta Videos", ("abrir", "shell:My Video"), "Abriendo."),
+    _a("abrir_papelera", CARPETAS, "Abrir la papelera", ("abrir", "shell:RecycleBinFolder"), "Abriendo."),
 
     # ------------------------------------------------------------------ información
-    _a("decir_hora", INFO, "Decir la hora", ("informe", "hora"), "", "que hora es"),
-    _a("decir_fecha", INFO, "Decir la fecha", ("informe", "fecha"), "", "que dia es hoy"),
-    _a("decir_bateria", INFO, "Decir cuánta batería queda", ("informe", "bateria"), "", "cuanta bateria queda"),
-    _a("decir_memoria", INFO, "Decir cuánta memoria (RAM) se usa", ("informe", "memoria"), "",
-       "cuanta memoria estoy usando"),
-    _a("decir_disco", INFO, "Decir cuánto espacio libre queda", ("informe", "disco"), "",
-       "cuanto espacio libre queda"),
-    _a("decir_encendida", INFO, "Decir hace cuánto está encendida la PC", ("informe", "encendida"), "",
-       "hace cuanto esta encendida la computadora"),
-    _a("decir_ip", INFO, "Decir la IP de la PC", ("informe", "ip"), "", "cual es mi ip"),
+    _a("decir_hora", INFO, "Decir la hora", ("informe", "hora"), ""),
+    _a("decir_fecha", INFO, "Decir la fecha", ("informe", "fecha"), ""),
+    _a("decir_bateria", INFO, "Decir cuánta batería queda", ("informe", "bateria"), ""),
+    _a("decir_memoria", INFO, "Decir cuánta memoria (RAM) se usa", ("informe", "memoria"), ""),
+    _a("decir_disco", INFO, "Decir cuánto espacio libre queda", ("informe", "disco"), ""),
+    _a("decir_encendida", INFO, "Decir hace cuánto está encendida la PC", ("informe", "encendida"), ""),
+    _a("decir_ip", INFO, "Decir la IP de la PC", ("informe", "ip"), ""),
 
     # ------------------------------------------------------------------ temporizador
     _a("temporizador_5", TEMPORIZADOR, "Temporizador de 5 minutos", ("temporizador", 5),
-       "Listo, te aviso en cinco minutos.", "temporizador de cinco minutos"),
+       "Listo, te aviso en cinco minutos."),
     _a("temporizador_10", TEMPORIZADOR, "Temporizador de 10 minutos", ("temporizador", 10),
-       "Listo, te aviso en diez minutos.", "temporizador de diez minutos"),
+       "Listo, te aviso en diez minutos."),
     _a("temporizador_15", TEMPORIZADOR, "Temporizador de 15 minutos", ("temporizador", 15),
-       "Listo, te aviso en quince minutos.", "temporizador de quince minutos"),
+       "Listo, te aviso en quince minutos."),
     _a("temporizador_30", TEMPORIZADOR, "Temporizador de 30 minutos", ("temporizador", 30),
-       "Listo, te aviso en media hora.", "temporizador de media hora"),
+       "Listo, te aviso en media hora."),
     _a("temporizador_60", TEMPORIZADOR, "Temporizador de 1 hora", ("temporizador", 60),
-       "Listo, te aviso en una hora.", "temporizador de una hora"),
+       "Listo, te aviso en una hora."),
     _a("temporizador_cancelar", TEMPORIZADOR, "Cancelar los temporizadores", ("temporizador", 0),
-       "Listo, cancelé los temporizadores.", "cancela el temporizador"),
+       "Listo, cancelé los temporizadores."),
 ]
 
 POR_CLAVE = {a.clave: a for a in CATALOGO}
@@ -531,23 +496,3 @@ def _informe_ip(entorno):
 
 INFORMES = {"hora": _informe_hora, "fecha": _informe_fecha, "bateria": _informe_bateria,
             "memoria": _informe_memoria, "disco": _informe_disco, "encendida": _informe_encendida, "ip": _informe_ip}
-
-
-# ====================================================================== comandos sugeridos
-
-def comandos_sugeridos(existentes):
-    """Un comando por cada acción del catálogo que todavía no tengas (ni por frase ni por acción).
-    No toca ni pisa ninguno de los tuyos."""
-    def norm(frase):
-        return " ".join(str(frase).lower().translate(str.maketrans("áéíóúü", "aeiouu")).split())
-
-    frases = {norm(c.get("frase", "")) for c in existentes}
-    acciones = {c.get("valor") for c in existentes if c.get("tipo") == "accion_pc"}
-    nuevos = []
-    for a in CATALOGO:
-        if a.clave in acciones or norm(a.frase) in frases:
-            continue
-        frases.add(norm(a.frase))
-        nuevos.append({"frase": a.frase, "tipo": "accion_pc", "valor": a.clave, "respuesta": "",
-                       "confirmar": a.confirmar})
-    return nuevos

@@ -9,7 +9,6 @@ import tkinter as tk
 import webbrowser
 from tkinter import filedialog, messagebox, ttk
 
-import acciones_pc
 import actualizar
 import estilo
 import remoto
@@ -241,8 +240,6 @@ class VentanaConfiguracion(tk.Toplevel):
         ttk.Button(botones, text="Agregar", command=self.agregar).grid(row=0, column=0, padx=(0, 6))
         ttk.Button(botones, text="Editar", command=self.editar).grid(row=0, column=1, padx=6)
         ttk.Button(botones, text="Borrar", command=self.borrar).grid(row=0, column=2, padx=6)
-        ttk.Button(botones, text="Agregar comandos sugeridos...", command=self.agregar_sugeridos
-                   ).grid(row=0, column=3, padx=(18, 0))
 
         self.comandos = nucleo.leer_comandos()
         self.refrescar()
@@ -275,22 +272,6 @@ class VentanaConfiguracion(tk.Toplevel):
         if nuevo:
             self.comandos.append(nuevo)
             self._guardar_comandos()
-
-    def agregar_sugeridos(self):
-        """Suma un comando por cada acción de la PC que todavía no tengas (suspender, brillo, ventanas...)."""
-        nuevos = acciones_pc.comandos_sugeridos(self.comandos)
-        if not nuevos:
-            messagebox.showinfo("Comandos sugeridos", "Ya tenés todos los comandos sugeridos.", parent=self)
-            return
-        ejemplos = "\n".join("• " + c["frase"] for c in nuevos[:8])
-        if not messagebox.askyesno(
-                "Comandos sugeridos",
-                f"Voy a agregar {len(nuevos)} comandos nuevos (suspender, brillo, ventanas, hora, temporizador, "
-                f"abrir ajustes...). No toco ninguno de los tuyos.\n\nPor ejemplo:\n{ejemplos}\n...\n\n"
-                "Después podés borrar o cambiar los que no quieras. ¿Los agrego?", parent=self):
-            return
-        self.comandos.extend(nuevos)
-        self._guardar_comandos()
 
     def editar(self):
         i = self._seleccionado()

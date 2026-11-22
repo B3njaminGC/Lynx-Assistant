@@ -68,9 +68,8 @@ ahí los editás en la pestaña **Comandos**.
 
 ### Acciones de la PC
 
-Se eligen directamente en la lista "¿Qué tiene que hacer?" del comando nuevo (vienen ordenadas por tema, por ejemplo "Energía · Suspender la PC"), y en la pestaña **Comandos** el botón **Agregar comandos sugeridos**
-crea de un saque un comando con frase para cada una (no toca ni pisa los tuyos; después borrás los que no quieras).
-Todo funciona sin internet y sin instalar nada extra.
+Se eligen directamente en la lista "¿Qué tiene que hacer?" del comando nuevo (vienen ordenadas por tema, por ejemplo "Energía · Suspender la PC").
+Vos elegís la acción y escribís la frase que querés decir. Todo funciona sin internet y sin instalar nada extra.
 
 | Tema | Ejemplos |
 |---|---|
