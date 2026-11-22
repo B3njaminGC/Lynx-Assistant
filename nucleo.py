@@ -18,6 +18,7 @@ from array import array
 from pathlib import Path
 
 from personajes import Personajes, escribir_lista, guion_voz_base
+import acciones_pc
 import clic
 import teclas
 
@@ -115,7 +116,18 @@ RESPUESTAS_POR_DEFECTO = {
     "reproducir_musica": "Poniendo música.",
     "hacer_clic": "",
     "enviar_teclas": "",   # en un juego conviene que no hable: solo habla si le ponés una respuesta
+    "accion_pc": "Listo.",  # cada acción de la PC tiene su propia respuesta (ver acciones_pc.py)
 }
+
+
+def respuesta_de_comando(cmd):
+    """Lo que dice Lynx al cumplir ese comando: la respuesta que le pusiste o la que corresponde."""
+    propia = (cmd.get("respuesta") or "").strip()
+    if propia:
+        return propia
+    if cmd.get("tipo") == "accion_pc":
+        return acciones_pc.respuesta_por_defecto(cmd.get("valor"))
+    return RESPUESTAS_POR_DEFECTO.get(cmd.get("tipo"), "Listo.")
 
 # Teclas multimedia de Windows: (código de tecla, cuántas veces se aprieta).
 TECLAS_MULTIMEDIA = {
@@ -134,6 +146,7 @@ FRASES_FIJAS = [  # la de prueba va primera: se convierte antes y se puede escuc
     FRASE_DE_PRUEBA, "Te escucho.", "Hasta luego.", "¿Confirmás?", "Cancelado.", "No entendí ese comando.",
     "No pude hacerlo. Revisá la ruta del comando.", "Todavía no sé hacer esa acción.",
     "No encuentro esa salida de audio.",
+    "Se terminó el tiempo.", "No pude hacerlo.",
 ]
 
 GESTOR = Personajes(BASE, log, SIN_VENTANA)  # voces de personaje: se comparte entre reinicios del motor
@@ -583,6 +596,7 @@ class Motor(threading.Thread):
         self.pausado = threading.Event()
         self.recargar = threading.Event()
         self.estado = "dormido"
+        self.temporizadores = []   # [(cuándo vence (monotonic), minutos)]
         self.despierto = False
         self.despierto_desde = 0.0   # cuándo empezó a esperar la orden (monotonic)
         self.reco_libre = None       # reconocedor sin gramática: oye todo y solo se activa con el nombre
@@ -713,7 +727,7 @@ class Motor(threading.Thread):
         """Todo lo que el asistente puede llegar a decir (fijas + la respuesta de cada comando)."""
         frases = list(FRASES_FIJAS)
         for cmd in self.comandos:
-            frase = (cmd.get("respuesta") or "").strip() or RESPUESTAS_POR_DEFECTO.get(cmd.get("tipo"), "Listo.")
+            frase = respuesta_de_comando(cmd)
             if frase:
                 frases.append(frase)
         vistas, resultado = set(), []
@@ -916,7 +930,7 @@ class Motor(threading.Thread):
         tipo = cmd["tipo"]
         valor = cmd.get("valor", "")
         # Lo que dice al hacerlo: la respuesta propia del comando o la que corresponde al tipo.
-        respuesta = (cmd.get("respuesta") or "").strip() or RESPUESTAS_POR_DEFECTO.get(tipo, "Listo.")
+        respuesta = respuesta_de_comando(cmd)
         self.estado = "ejecutando"
         if tipo in ("abrir_programa", "abrir_web"):
             os.startfile(os.path.expandvars(valor))
@@ -955,11 +969,37 @@ class Motor(threading.Thread):
             teclas.pulsar(valor)
             if respuesta:
                 self.hablar(respuesta)
+        elif tipo == "accion_pc":
+            propia = (cmd.get("respuesta") or "").strip() or None   # None = la del catálogo
+            acciones_pc.ejecutar(valor, self._entorno_acciones(), propia)
         elif tipo == "apagar":
             self.hablar(respuesta)
             self._correr(["shutdown", "/s", "/t", "0"])
         else:
             self.hablar("Todavía no sé hacer esa acción.")
+
+    # --- acciones de la PC (acciones_pc.py) y temporizadores
+
+    def _entorno_acciones(self):
+        return acciones_pc.Entorno(self.hablar, pulsar=teclas.pulsar, correr=lambda a: subprocess.run(
+            a, capture_output=True, creationflags=SIN_VENTANA), temporizador=self.poner_temporizador)
+
+    def poner_temporizador(self, minutos):
+        """Con minutos = 0 cancela los que haya; si no, avisa cuando pase ese tiempo."""
+        if minutos <= 0:
+            self.temporizadores.clear()
+            return
+        self.temporizadores.append((time.monotonic() + minutos * 60, minutos))
+
+    def _avisar_temporizadores(self):
+        """Cuando se cumple uno, lo avisa (sin interrumpir si estás dándole una orden)."""
+        if not self.temporizadores or self.despierto or self.mudo or self.pausado.is_set():
+            return
+        ahora = time.monotonic()
+        vencidos = [t for t in self.temporizadores if t[0] <= ahora]
+        for t in vencidos:
+            self.temporizadores.remove(t)
+            self.hablar("Se terminó el tiempo.")
 
     def _tecla_multimedia(self, nombre):
         codigo, veces = TECLAS_MULTIMEDIA.get(nombre, (None, 0))
@@ -1128,6 +1168,7 @@ class Motor(threading.Thread):
             self.recargar.clear()
             self._preparar_comandos(modelo)
             self.preparar_personaje()  # agregaste o cambiaste un comando: prepara solo lo nuevo
+        self._avisar_temporizadores()
         if self.prueba_voz is not None:
             self._hacer_prueba_de_voz()
         if self.prueba_personaje:

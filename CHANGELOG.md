@@ -2,6 +2,16 @@
 
 Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [1.6] — 2026-11-22
+### Agregado
+- Tipo de comando **Acción de la PC**: más de cien acciones para elegir de una lista (suspender, hibernar, reiniciar,
+  bloquear, apagar la pantalla, apagar en X tiempo, ventanas y escritorios virtuales, captura y grabación de pantalla,
+  copiar/pegar y atajos del navegador, volumen y brillo, modo oscuro/claro, vaciar la papelera, abrir programas,
+  ajustes y carpetas de Windows, decir la hora/fecha/batería/memoria/espacio/IP, temporizadores).
+- Botón **Agregar comandos sugeridos** en la pestaña Comandos: crea un comando con frase para cada acción que todavía
+  no tengas, sin tocar los tuyos.
+- Los temporizadores avisan en voz alta al terminar, sin interrumpir mientras Lynx espera una orden.
+
 ## [1.5] — 2026-11-15
 ### Agregado
 - Acción **Apretar teclas**: pulsa teclas o atajos (`enter`, `ctrl+shift+m`...) con códigos físicos de teclado,

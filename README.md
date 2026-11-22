@@ -63,6 +63,31 @@ ahí los editás en la pestaña **Comandos**.
 | Hacer clic | Hace clic en un lugar de la pantalla que marcás vos (por ejemplo el botón JUGAR de un juego) |
 | Reproducir música (VLC) | Reproduce canciones o carpetas enteras con VLC |
 | Música y volumen | Pista siguiente/anterior, pausa, subir/bajar volumen, silenciar (funciona con Spotify, YouTube y casi cualquier reproductor) |
+| Acción de la PC | Más de cien acciones listas para elegir de una lista (ver abajo) |
+
+### Acciones de la PC
+
+Se eligen de una lista, sin escribir nada, y en la pestaña **Comandos** el botón **Agregar comandos sugeridos**
+crea de un saque un comando con frase para cada una (no toca ni pisa los tuyos; después borrás los que no quieras).
+Todo funciona sin internet y sin instalar nada extra.
+
+| Tema | Ejemplos |
+|---|---|
+| Energía | suspender, hibernar, reiniciar, cerrar sesión, bloquear, apagar solo la pantalla, apagar en 30 min o 1 hora, cancelar el apagado |
+| Ventanas y escritorios | mostrar el escritorio, cambiar de ventana, maximizar/minimizar, ventana a la izquierda/derecha, escritorios virtuales, proyectar |
+| Captura y grabación | captura de pantalla (recorte), grabar la pantalla, Barra de juegos, historial del portapapeles, dictado |
+| Edición y navegador | copiar, pegar, deshacer, guardar, nueva/cerrar/reabrir pestaña, recargar, volver atrás, buscar en la página |
+| Volumen y brillo | volumen al máximo/mitad/bajito, subir/bajar el brillo, brillo al máximo/mitad/mínimo |
+| Apariencia y limpieza | modo oscuro/claro, vaciar la papelera, reiniciar el Explorador |
+| Programas y ajustes de Windows | administrador de tareas, calculadora, Paint, panel de control, Windows Update, sonido, Wi-Fi, Bluetooth... |
+| Carpetas | Descargas, Documentos, Escritorio, Imágenes, Música, Videos, papelera |
+| Información | la hora, la fecha, batería, memoria en uso, espacio libre, hace cuánto está encendida la PC, la IP |
+| Temporizador | de 5, 10, 15, 30 minutos o 1 hora; avisa cuando termina (sin cortarte si le estás dando una orden) |
+
+Las acciones que pueden hacerte perder trabajo (reiniciar, cerrar sesión, cerrar la ventana, vaciar la papelera)
+vienen con confirmación. Detalles: el brillo solo funciona en pantallas de notebook (no en monitores externos), y el
+volumen "al máximo/mitad" se logra bajando y subiendo con las teclas de volumen, porque Windows no deja fijarlo
+sin programas extra.
 
 ### Comandos dentro de un juego
 

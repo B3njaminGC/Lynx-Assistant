@@ -7,6 +7,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
+import acciones_pc
 import clic
 import teclas
 
@@ -23,6 +24,7 @@ TIPOS = {
     "reproducir_musica": "Reproducir canciones en VLC",
     "enviar_teclas": "Apretar teclas (para juegos y programas)",
     "hacer_clic": "Hacer clic en un lugar de la pantalla (ej: botón JUGAR)",
+    "accion_pc": "Acción de la PC (suspender, brillo, ventanas, hora...)",
 }
 # Opciones de la acción de música y volumen: nombre que se muestra -> clave que guarda el comando.
 MULTIMEDIA = {
@@ -48,6 +50,7 @@ VALOR_AYUDA = {
     "tecla_multimedia": "Qué hacer (funciona con Spotify, YouTube y casi cualquier reproductor):",
     "enviar_teclas": "Teclas a apretar, una combinación por línea (ej: enter  o  ctrl+shift+m):",
     "hacer_clic": "Dónde hacer clic: tocá Marcar y poné el mouse sobre el botón durante 5 segundos:",
+    "accion_pc": "Qué hacer (elegí de la lista; están ordenadas por tema):",
 }
 CONFIRMAR_POR_DEFECTO = {"cerrar_programa", "cerrar_varios", "apagar"}
 
@@ -129,6 +132,9 @@ class Dialogo(tk.Toplevel):
         self.lbl_posicion = ttk.Label(self.fila_valor, text="")
         self.combo_multimedia = ttk.Combobox(self.fila_valor, values=list(MULTIMEDIA), state="readonly",
                                              width=38)
+        self.combo_accion = ttk.Combobox(self.fila_valor, values=list(acciones_pc.NOMBRES_PARA_VENTANA),
+                                         state="readonly", width=48, height=20)
+        self.combo_accion.bind("<<ComboboxSelected>>", lambda e: self._cambio_accion())
 
         ttk.Label(marco, text="Qué dice el asistente al hacerlo (opcional):").grid(sticky="w")
         self.var_respuesta = tk.StringVar(value=cmd.get("respuesta", "") if cmd else "")
@@ -155,6 +161,9 @@ class Dialogo(tk.Toplevel):
                 self.lbl_posicion.config(text="Posición guardada: " + clic.en_texto(valor))
             elif cmd["tipo"] == "tecla_multimedia":
                 self.combo_multimedia.set(MULTIMEDIA_POR_CLAVE.get(valor, ""))
+            elif cmd["tipo"] == "accion_pc":
+                accion = acciones_pc.POR_CLAVE.get(valor)
+                self.combo_accion.set(acciones_pc.nombre_para_ventana(accion) if accion else "")
             else:
                 self.var_valor.set(valor)
 
@@ -168,7 +177,7 @@ class Dialogo(tk.Toplevel):
     def cambio_tipo(self, es_cambio_del_usuario):
         tipo = self.tipo_actual()
         self.lbl_valor.config(text=VALOR_AYUDA[tipo])
-        for w in (self.ent_valor, self.btn_buscar, self.txt_valor, self.combo_multimedia,
+        for w in (self.ent_valor, self.btn_buscar, self.txt_valor, self.combo_multimedia, self.combo_accion,
                   self.btn_canciones, self.btn_carpeta, self.btn_marcar, self.lbl_posicion):
             w.grid_forget()
         if tipo == "hacer_clic":
@@ -187,12 +196,28 @@ class Dialogo(tk.Toplevel):
             self.combo_multimedia.grid(row=0, column=0, sticky="we")
             if not self.combo_multimedia.get():
                 self.combo_multimedia.set(next(iter(MULTIMEDIA)))
+        elif tipo == "accion_pc":
+            self.combo_accion.grid(row=0, column=0, sticky="we")
+            if not self.combo_accion.get():
+                self.combo_accion.set(next(iter(acciones_pc.NOMBRES_PARA_VENTANA)))
+            if es_cambio_del_usuario:
+                self._cambio_accion()
+            return
         elif tipo != "apagar":
             self.ent_valor.grid(row=0, column=0, sticky="we")
             if tipo == "abrir_programa":
                 self.btn_buscar.grid(row=0, column=1, padx=(6, 0))
         if es_cambio_del_usuario:
             self.var_confirmar.set(tipo in CONFIRMAR_POR_DEFECTO)
+
+    def _cambio_accion(self):
+        """Al elegir una acción: sugiere la frase (si todavía no escribiste una) y si pide confirmación."""
+        accion = acciones_pc.POR_CLAVE.get(acciones_pc.NOMBRES_PARA_VENTANA.get(self.combo_accion.get(), ""))
+        if accion is None:
+            return
+        if not self.var_frase.get().strip():
+            self.var_frase.set(accion.frase)
+        self.var_confirmar.set(accion.confirmar)
 
     def marcar_posicion(self, restantes=5):
         """Cuenta regresiva para que lleves el mouse al botón; después anota dónde quedó."""
@@ -245,6 +270,8 @@ class Dialogo(tk.Toplevel):
             valor = ""
         elif tipo == "tecla_multimedia":
             valor = MULTIMEDIA.get(self.combo_multimedia.get(), "")
+        elif tipo == "accion_pc":
+            valor = acciones_pc.NOMBRES_PARA_VENTANA.get(self.combo_accion.get(), "")
         elif tipo == "reproducir_musica":
             valor = [l.strip().strip('"') for l in self.txt_valor.get("1.0", "end").splitlines() if l.strip()]
         elif tipo == "hacer_clic":

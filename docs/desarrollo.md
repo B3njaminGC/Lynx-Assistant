@@ -46,3 +46,11 @@ anterior. Si el cambio suma librerías nuevas, hace falta un release completo co
 | `lanzador.py`, `empaquetar.py` | Arranque del `.exe` y armado de parches |
 | `lynx.iss` | Receta del instalador (Inno Setup) |
 | `tests/` | Pruebas automáticas (pytest) |
+
+## Agregar una acción de la PC
+
+Las acciones del tipo "Acción de la PC" están todas en `acciones_pc.py`, en la tabla `CATALOGO`: una línea por acción
+(clave, grupo, nombre, cómo se hace, qué dice, frase sugerida, ¿pide confirmación?). Para sumar una de teclas o de
+"abrir" alcanza con una línea nueva; para algo más especial se agrega una función en `FUNCIONES` o `INFORMES`.
+`tests/test_acciones_pc.py` revisa solo que las teclas existan, que no se repitan claves ni frases, y que cada
+frase sugerida lleve a su propia acción.

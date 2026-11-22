@@ -46,7 +46,7 @@ AYUDA = (
 TIPOS = {
     "abrir_programa": "abre un programa", "abrir_web": "abre una página", "cerrar_programa": "cierra un programa",
     "cerrar_varios": "cierra varios programas", "apagar": "apaga la PC", "cambiar_salida": "cambia la salida de audio",
-    "tecla_multimedia": "música/volumen", "reproducir_musica": "reproduce canciones en VLC", "enviar_teclas": "aprieta teclas", "hacer_clic": "hace clic en la pantalla",
+    "tecla_multimedia": "música/volumen", "reproducir_musica": "reproduce canciones en VLC", "enviar_teclas": "aprieta teclas", "hacer_clic": "hace clic en la pantalla", "accion_pc": "acción de la PC",
     "responder": "responde algo", "decir": "responde algo",
 }
 
