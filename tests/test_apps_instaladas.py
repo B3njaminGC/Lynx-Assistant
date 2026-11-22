@@ -47,3 +47,23 @@ def test_filtrar_ignora_tildes_y_mayusculas():
     assert [a[0] for a in apps_instaladas.filtrar(apps, "SPOT")] == ["Spotify"]
     assert len(apps_instaladas.filtrar(apps, "")) == 3
     assert apps_instaladas.filtrar(apps, "zzz") == []
+
+
+def test_exe_de_una_app_instalada():
+    assert apps_instaladas.exe_de("shell:AppsFolder\\{6D809377}\\BraveSoftware\\brave.exe") == "brave.exe"
+    assert apps_instaladas.exe_de("shell:AppsFolder\\Spotify.exe") == "Spotify.exe"
+    assert apps_instaladas.exe_de("shell:AppsFolder\\Microsoft.WindowsCamera_8wekyb3d8bbwe!App") is None
+
+
+def test_programas_abiertos_ahora():
+    texto = json.dumps([{"Proceso": "brave.exe", "Nombre": "Brave Browser"}, {"Proceso": "obs64.exe", "Nombre": ""}])
+    assert apps_instaladas.leer_abiertas(falso(texto)) == [("Brave Browser", "brave.exe"), ("obs64", "obs64.exe")]
+
+
+def test_lista_para_cerrar_junta_abiertos_e_instalados_sin_repetir():
+    abiertas = [("Brave Browser", "brave.exe"), ("Explorador", "explorer.exe"), ("Lynx", "Asistente.exe")]
+    instaladas = [("Spotify", "shell:AppsFolder\\Spotify.exe"), ("Brave", "shell:AppsFolder\\x\\brave.exe"),
+                  ("Cámara", "shell:AppsFolder\\Microsoft.WindowsCamera!App")]
+    lista = apps_instaladas.para_cerrar(abiertas, instaladas)
+    assert [exe for _, exe in lista] == ["brave.exe", "Spotify.exe"]   # sin escritorio, ni Lynx, ni apps sin .exe
+    assert lista[0][0].endswith("abierto ahora")                        # lo abierto va primero

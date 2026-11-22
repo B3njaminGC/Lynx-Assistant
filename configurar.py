@@ -47,8 +47,8 @@ OPCIONES_DE_ACCION = [n for t, n in TIPOS.items() if t != "accion_pc"] + list(ac
 VALOR_AYUDA = {
     "abrir_programa": "Programa a abrir (elegí de tus apps instaladas o buscá el archivo):",
     "abrir_web": "Dirección de la página (ej: https://www.youtube.com):",
-    "cerrar_programa": "Nombre del programa a cerrar (ej: brave.exe):",
-    "cerrar_varios": "Programas a cerrar, uno por línea (ej: brave.exe):",
+    "cerrar_programa": "Programa a cerrar (elegilo de la lista o escribí su nombre, ej: brave.exe):",
+    "cerrar_varios": "Programas a cerrar, uno por línea (agregalos de la lista o escribilos):",
     "apagar": "",
     "cambiar_salida": "Nombre (o parte) del dispositivo de sonido (ej: Speaker (Realtek):",
     "reproducir_musica": "Canciones o carpetas a reproducir, una por línea (usá los botones de abajo):",
@@ -146,6 +146,9 @@ class Dialogo(tk.Toplevel):
         self.ent_valor = ttk.Entry(self.fila_valor, textvariable=self.var_valor, width=40)
         self.btn_buscar = ttk.Button(self.fila_valor, text="Buscar...", command=self.buscar_programa)
         self.btn_apps = ttk.Button(self.fila_valor, text="Elegir de mis apps instaladas...", command=self.elegir_app)
+        self.btn_cerrar = ttk.Button(self.fila_valor, text="Elegir de mis programas...", command=self.elegir_para_cerrar)
+        self.btn_cerrar_varios = ttk.Button(self.fila_valor, text="Agregar de mis programas...",
+                                            command=self.agregar_para_cerrar)
         self.destino_app = None      # si elegiste una app de la lista: cómo se abre de verdad
         self.nombre_app = None       # y cómo se llama (es lo que se ve en el campo)
         self.txt_valor = tk.Text(self.fila_valor, width=38, height=5)
@@ -210,7 +213,8 @@ class Dialogo(tk.Toplevel):
     def cambio_tipo(self, es_cambio_del_usuario):
         tipo = self.tipo_actual()
         self.lbl_valor.config(text=VALOR_AYUDA[tipo])
-        for w in (self.ent_valor, self.btn_buscar, self.btn_apps, self.txt_valor, self.combo_multimedia,
+        for w in (self.ent_valor, self.btn_buscar, self.btn_apps, self.btn_cerrar,
+                  self.btn_cerrar_varios, self.txt_valor, self.combo_multimedia,
                   self.btn_canciones, self.btn_carpeta, self.btn_marcar, self.lbl_posicion):
             w.grid_forget()
         if tipo == "hacer_clic":
@@ -221,6 +225,8 @@ class Dialogo(tk.Toplevel):
             return
         if tipo in ("cerrar_varios", "enviar_teclas"):
             self.txt_valor.grid(row=0, column=0)
+            if tipo == "cerrar_varios":
+                self.btn_cerrar_varios.grid(row=1, column=0, sticky="w", pady=(6, 0))
         elif tipo == "reproducir_musica":
             self.txt_valor.grid(row=0, column=0, columnspan=2)
             self.btn_canciones.grid(row=1, column=0, sticky="w", pady=(6, 0))
@@ -238,6 +244,8 @@ class Dialogo(tk.Toplevel):
             if tipo == "abrir_programa":
                 self.btn_buscar.grid(row=0, column=1, padx=(6, 0))
                 self.btn_apps.grid(row=1, column=0, sticky="w", pady=(6, 0))
+            elif tipo == "cerrar_programa":
+                self.btn_cerrar.grid(row=1, column=0, sticky="w", pady=(6, 0))
         if es_cambio_del_usuario:
             self.var_confirmar.set(tipo in CONFIRMAR_POR_DEFECTO)
 
@@ -282,10 +290,21 @@ class Dialogo(tk.Toplevel):
 
     def elegir_app(self):
         """Abre la lista de apps instaladas (como el "Abrir con" de Windows) y deja la que elijas."""
-        elegida = SelectorDeApps.pedir(self)
-        if elegida:
-            self.nombre_app, self.destino_app = elegida
+        elegidas = SelectorDeApps.pedir(self, "abrir")
+        if elegidas:
+            self.nombre_app, self.destino_app = elegidas[0]
             self.var_valor.set(self.nombre_app)
+
+    def elegir_para_cerrar(self):
+        elegidas = SelectorDeApps.pedir(self, "cerrar")
+        if elegidas:
+            self.var_valor.set(elegidas[0][1])
+
+    def agregar_para_cerrar(self):
+        elegidas = SelectorDeApps.pedir(self, "cerrar", varios=True)
+        if elegidas:
+            actual = {l.strip().lower() for l in self.txt_valor.get("1.0", "end").splitlines()}
+            self._agregar_lineas([exe for _, exe in elegidas if exe.lower() not in actual])
 
     def buscar_programa(self):
         ruta = filedialog.askopenfilename(
@@ -345,31 +364,38 @@ class Dialogo(tk.Toplevel):
 
 
 class SelectorDeApps(tk.Toplevel):
-    """Lista con buscador de las apps instaladas. `SelectorDeApps.pedir(ventana)` devuelve (nombre, destino) o None."""
-    _guardadas = None   # la lista se pide una sola vez por sesión (tarda un par de segundos)
+    """Lista con buscador para elegir apps, sin escribir nada.
+    modo "abrir": tus apps instaladas. modo "cerrar": los programas abiertos ahora y los instalados.
+    `SelectorDeApps.pedir(ventana, modo, varios)` devuelve una lista de (texto, valor) o [] si cancelaste."""
+    _guardadas = {}   # la lista se pide una sola vez por sesión y modo (tarda un par de segundos)
 
     @classmethod
-    def pedir(cls, padre):
-        selector = cls(padre)
+    def pedir(cls, padre, modo, varios=False):
+        selector = cls(padre, modo, varios)
         padre.wait_window(selector)
         return selector.resultado
 
-    def __init__(self, padre):
+    def __init__(self, padre, modo, varios):
         super().__init__(padre)
-        self.title("Mis apps instaladas")
+        self.modo, self.varios = modo, varios
+        self.title("Mis apps instaladas" if modo == "abrir" else "Mis programas")
         self.transient(padre)
-        self.resultado = None
+        self.resultado = []
         self.apps = []
         marco = ttk.Frame(self, padding=14)
         marco.grid()
-        ttk.Label(marco, text="Escribí para buscar y elegí la app (doble clic para aceptar):").grid(sticky="w")
+        ayuda = "Escribí para buscar y elegí la app (doble clic para aceptar):" if modo == "abrir" else \
+            ("Elegí los programas (Ctrl o Shift para varios):" if varios else
+             "Elegí el programa (doble clic para aceptar):")
+        ttk.Label(marco, text=ayuda).grid(sticky="w")
         self.var_busqueda = tk.StringVar()
         self.var_busqueda.trace_add("write", lambda *a: self._mostrar())
         entrada = ttk.Entry(marco, textvariable=self.var_busqueda, width=50)
         entrada.grid(sticky="we", pady=(0, 8))
         cuerpo = ttk.Frame(marco)
         cuerpo.grid(sticky="nsew")
-        self.lista = tk.Listbox(cuerpo, width=52, height=16, activestyle="none", exportselection=False)
+        self.lista = tk.Listbox(cuerpo, width=60, height=16, activestyle="none", exportselection=False,
+                                selectmode="extended" if varios else "browse")
         self.lista.grid(row=0, column=0)
         barra = ttk.Scrollbar(cuerpo, orient="vertical", command=self.lista.yview)
         barra.grid(row=0, column=1, sticky="ns")
@@ -384,8 +410,8 @@ class SelectorDeApps(tk.Toplevel):
         ttk.Button(botones, text="Cancelar", command=self.destroy).grid(row=0, column=0, padx=6)
         ttk.Button(botones, text="Elegir", command=self.aceptar).grid(row=0, column=1)
 
-        if SelectorDeApps._guardadas is not None:
-            self._llegaron(SelectorDeApps._guardadas, None)
+        if modo in SelectorDeApps._guardadas:
+            self._llegaron(SelectorDeApps._guardadas[modo])
         else:
             self._pedido = {}
             threading.Thread(target=self._buscar_en_segundo_plano, daemon=True).start()
@@ -396,39 +422,48 @@ class SelectorDeApps(tk.Toplevel):
 
     def _buscar_en_segundo_plano(self):
         try:
-            self._pedido["apps"] = apps_instaladas.leer()
+            if self.modo == "abrir":
+                self._pedido["apps"] = apps_instaladas.leer()
+            else:
+                try:
+                    instaladas = apps_instaladas.leer()
+                except Exception:
+                    instaladas = []     # aunque falle la lista de instaladas, sirven los abiertos
+                self._pedido["apps"] = apps_instaladas.para_cerrar(apps_instaladas.leer_abiertas(), instaladas)
         except Exception as error:
             self._pedido["error"] = str(error)
 
     def _esperar(self):
         if not self.winfo_exists():
             return
-        if "apps" in self._pedido or "error" in self._pedido:
-            self._llegaron(self._pedido.get("apps"), self._pedido.get("error"))
+        if "apps" in self._pedido:
+            self._llegaron(self._pedido["apps"])
+        elif "error" in self._pedido:
+            self._llegaron(None)
         else:
             self.after(150, self._esperar)
 
-    def _llegaron(self, apps, error):
+    def _llegaron(self, apps):
         if apps is None:
-            self.var_estado.set("No pude leer la lista de apps. Cerrá esto y usá Buscar... para elegir el archivo.")
+            self.var_estado.set("No pude leer la lista. Cerrá esto y escribí el nombre a mano.")
             return
-        SelectorDeApps._guardadas = apps
+        SelectorDeApps._guardadas[self.modo] = apps
         self.apps = apps
         self._mostrar()
 
     def _mostrar(self):
         self.visibles = apps_instaladas.filtrar(self.apps, self.var_busqueda.get())
         self.lista.delete(0, "end")
-        for nombre, _ in self.visibles:
-            self.lista.insert("end", nombre)
+        for texto, _ in self.visibles:
+            self.lista.insert("end", texto)
         if self.visibles:
             self.lista.selection_set(0)
-        self.var_estado.set(f"{len(self.visibles)} de {len(self.apps)} apps")
+        self.var_estado.set(f"{len(self.visibles)} de {len(self.apps)}")
 
     def aceptar(self):
         seleccion = self.lista.curselection()
         if seleccion:
-            self.resultado = self.visibles[seleccion[0]]
+            self.resultado = [self.visibles[i] for i in seleccion]
             self.destroy()
 
 

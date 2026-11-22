@@ -8,6 +8,8 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   reiniciar, bloquear, apagar la pantalla, apagar en X tiempo, ventanas y escritorios virtuales, captura y grabación de
   pantalla, copiar/pegar y atajos del navegador, volumen y brillo, modo oscuro/claro, vaciar la papelera, temporizadores).
 - **Abrir programa** ahora deja elegir de la lista de apps instaladas (programas de escritorio y de la Store), con buscador.
+- **Cerrar programa** y **Cerrar varios** se eligen de una lista de programas abiertos ahora e instalados, sin escribir
+  el nombre del `.exe`.
 - La lista de comandos permite **seleccionar varios** (Ctrl para sueltos, Shift para un rango) y borrarlos juntos.
 - Tipo **Ejecutar un comando o script** (`.bat`, `.ps1`, `.py` o cualquier comando).
 - Los temporizadores avisan en voz alta al terminar, sin interrumpir mientras Lynx espera una orden.

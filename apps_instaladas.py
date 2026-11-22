@@ -58,3 +58,59 @@ def filtrar(apps, busqueda):
     """Las que contienen todas las palabras escritas (sin importar mayúsculas ni tildes)."""
     palabras = _sin_tildes(busqueda).split()
     return [a for a in apps if all(p in _sin_tildes(a[0]) for p in palabras)]
+
+
+# ---------------------------------------------------------------- para cerrar programas
+# Para cerrar hace falta el nombre del proceso (brave.exe). Se arma con lo que está abierto ahora y con las apps
+# instaladas cuyo id termina en .exe.
+
+SCRIPT_ABIERTAS = (
+    "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; "
+    "Get-Process | Where-Object { $_.MainWindowHandle -ne 0 } | ForEach-Object { "
+    "$d = ''; try { $d = $_.MainModule.FileVersionInfo.FileDescription } catch {}; "
+    "[pscustomobject]@{ Proceso = $_.ProcessName + '.exe'; Nombre = $d } } | ConvertTo-Json -Compress")
+# Programas que nunca se ofrecen para cerrar: el escritorio de Windows y el propio Lynx.
+NO_OFRECER = {"explorer.exe", "asistente.exe", "applicationframehost.exe", "textinputhost.exe",
+              "systemsettings.exe", "shellexperiencehost.exe", "searchhost.exe", "startmenuexperiencehost.exe",
+              "lockapp.exe", "python.exe", "pythonw.exe"}
+
+
+def exe_de(destino):
+    """El nombre del .exe de una app instalada ("shell:AppsFolder\\{GUID}\\Brave\\brave.exe" -> "brave.exe"), o None."""
+    id_ = destino[len(PREFIJO):] if destino.startswith(PREFIJO) else destino
+    ultimo = id_.replace("/", "\\").split("\\")[-1].strip()
+    return ultimo if ultimo.lower().endswith(".exe") else None
+
+
+def leer_abiertas(correr=_correr_real):
+    """[(nombre, proceso.exe)] de los programas con ventana abierta ahora."""
+    resultado = correr(["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                        "-Command", SCRIPT_ABIERTAS])
+    if getattr(resultado, "returncode", 0) not in (0, None):
+        raise OSError("PowerShell no pudo listar los programas abiertos.")
+    texto = resultado.stdout.decode("utf-8", errors="replace").strip().lstrip("﻿")
+    if not texto:
+        return []
+    try:
+        datos = json.loads(texto)
+    except ValueError as error:
+        raise OSError("No entendí la lista de programas abiertos.") from error
+    if isinstance(datos, dict):
+        datos = [datos]
+    return [((str(d.get("Nombre") or "").strip() or str(d.get("Proceso"))[:-4]), str(d.get("Proceso") or ""))
+            for d in datos if d.get("Proceso")]
+
+
+def para_cerrar(abiertas, instaladas):
+    """[(texto para mostrar, proceso.exe)]: primero lo que está abierto ahora, después lo instalado.
+    Sin repetidos y sin el escritorio de Windows ni Lynx."""
+    lista, vistos = [], set()
+    for origen, apps in (("abierto ahora", abiertas), ("", [(n, exe_de(d)) for n, d in instaladas])):
+        for nombre, exe in apps:
+            if not exe or exe.lower() in vistos or exe.lower() in NO_OFRECER:
+                continue
+            vistos.add(exe.lower())
+            lista.append((f"{nombre}   ({exe})" + ("   · abierto ahora" if origen else ""), exe))
+    abiertas_primero = [a for a in lista if a[0].endswith("abierto ahora")]
+    resto = sorted((a for a in lista if not a[0].endswith("abierto ahora")), key=lambda a: a[0].lower())
+    return sorted(abiertas_primero, key=lambda a: a[0].lower()) + resto

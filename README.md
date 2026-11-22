@@ -54,8 +54,8 @@ ahí los editás en la pestaña **Comandos**.
 | Tipo | Qué hace |
 |---|---|
 | Abrir programa | Abre un programa: lo elegís de la lista de tus apps instaladas (como el "Abrir con" de Windows, incluye las de la Store) o buscás el `.exe` |
-| Cerrar programa | Cierra un proceso por su nombre (`notepad.exe`) |
-| Cerrar varios | Cierra una lista de programas |
+| Cerrar programa | Lo elegís de la lista de programas abiertos ahora (o escribís el nombre, `notepad.exe`) |
+| Cerrar varios | Cierra varios programas a la vez; los tildás de la lista |
 | Abrir página web | Abre un link en tu navegador |
 | Apagar la PC | Apaga la computadora (siempre pide confirmación si lo marcás) |
 | Cambiar salida de audio | Cambia el dispositivo por el que habla el asistente |
