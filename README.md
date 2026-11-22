@@ -63,11 +63,12 @@ ahí los editás en la pestaña **Comandos**.
 | Hacer clic | Hace clic en un lugar de la pantalla que marcás vos (por ejemplo el botón JUGAR de un juego) |
 | Reproducir música (VLC) | Reproduce canciones o carpetas enteras con VLC |
 | Música y volumen | Pista siguiente/anterior, pausa, subir/bajar volumen, silenciar (funciona con Spotify, YouTube y casi cualquier reproductor) |
-| Acción de la PC | Más de cien acciones listas para elegir de una lista (ver abajo) |
+| Ejecutar un comando o script | Corre un `.bat`, `.ps1`, `.py` o cualquier comando de Windows |
+| Acciones de la PC | Más de cien, que aparecen directamente en la lista "¿Qué tiene que hacer?" (ver abajo) |
 
 ### Acciones de la PC
 
-Se eligen de una lista, sin escribir nada, y en la pestaña **Comandos** el botón **Agregar comandos sugeridos**
+Se eligen directamente en la lista "¿Qué tiene que hacer?" del comando nuevo (vienen ordenadas por tema, por ejemplo "Energía · Suspender la PC"), y en la pestaña **Comandos** el botón **Agregar comandos sugeridos**
 crea de un saque un comando con frase para cada una (no toca ni pisa los tuyos; después borrás los que no quieras).
 Todo funciona sin internet y sin instalar nada extra.
 
