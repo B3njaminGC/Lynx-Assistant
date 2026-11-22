@@ -1,5 +1,4 @@
 """Pruebas del catálogo de acciones de la PC (sin tocar Windows: todo con un entorno de juguete)."""
-from datetime import datetime
 from types import SimpleNamespace
 
 import pytest
@@ -17,7 +16,7 @@ class Falso:
         self.codigo = codigo
         self.entorno = acciones_pc.Entorno(
             self.dicho.append, pulsar=self.teclas.append, abrir=self.abierto.append, correr=self._correr,
-            temporizador=self.minutos.append, ahora=lambda: datetime(2026, 11, 22, 15, 20))
+            temporizador=self.minutos.append)
 
     def _correr(self, argumentos):
         self.corrido.append(argumentos)
@@ -29,10 +28,10 @@ def test_el_catalogo_esta_bien_armado():
     assert len(claves) == len(set(claves))
     nombres = [acciones_pc.nombre_para_ventana(a) for a in acciones_pc.CATALOGO]
     assert len(nombres) == len(set(nombres))
-    assert len(claves) >= 100
+    assert len(claves) >= 50
     for a in acciones_pc.CATALOGO:
         modo, dato = a.como
-        assert modo in {"teclas", "abrir", "correr", "powershell", "funcion", "informe", "temporizador"}, a.clave
+        assert modo in {"teclas", "abrir", "correr", "powershell", "funcion", "temporizador"}, a.clave
 
 
 def test_las_teclas_del_catalogo_existen():
@@ -45,8 +44,6 @@ def test_las_funciones_e_informes_existen():
     for a in acciones_pc.CATALOGO:
         if a.como[0] == "funcion":
             assert a.como[1] in acciones_pc.FUNCIONES, a.clave
-        if a.como[0] == "informe":
-            assert a.como[1] in acciones_pc.INFORMES, a.clave
 
 
 def test_las_acciones_peligrosas_piden_confirmacion():
@@ -59,8 +56,6 @@ def test_ejecutar_por_teclas_abrir_y_correr():
     f = Falso()
     assert acciones_pc.ejecutar("mostrar_escritorio", f.entorno)
     assert f.teclas == ["win+d"] and f.dicho == []            # las de teclas no hablan
-    acciones_pc.ejecutar("calculadora", f.entorno)
-    assert f.abierto == ["calc"] and f.dicho == ["Abriendo."]
     f2 = Falso()
     acciones_pc.ejecutar("reiniciar", f2.entorno)
     assert f2.corrido == [["shutdown", "/r", "/t", "0"]] and f2.dicho == ["Reiniciando la PC."]
@@ -68,7 +63,7 @@ def test_ejecutar_por_teclas_abrir_y_correr():
 
 def test_la_respuesta_propia_manda_sobre_la_del_catalogo():
     f = Falso()
-    acciones_pc.ejecutar("calculadora", f.entorno, "Ahí va")
+    acciones_pc.ejecutar("hibernar", f.entorno, "Ahí va")
     assert f.dicho == ["Ahí va"]
 
 
@@ -105,32 +100,6 @@ def test_accion_que_ya_no_existe():
     f = Falso()
     assert not acciones_pc.ejecutar("inventada", f.entorno)
     assert "ya no existe" in f.dicho[0]
-
-
-def test_informes_de_hora_y_fecha():
-    f = Falso()
-    acciones_pc.ejecutar("decir_hora", f.entorno)
-    acciones_pc.ejecutar("decir_fecha", f.entorno)
-    assert f.dicho == ["Son las 3 y 20 de la tarde.", "Hoy es domingo 22 de noviembre de 2026."]
-
-
-@pytest.mark.parametrize("hora,minuto,esperado", [
-    (1, 0, "Es la una en punto de la madrugada."), (13, 15, "Es la una y cuarto de la tarde."),
-    (9, 30, "Son las 9 y media de la mañana."), (0, 5, "Son las 12 y 5 de la madrugada."),
-    (23, 45, "Son las 11 y 45 de la noche."),
-])
-def test_texto_de_la_hora(hora, minuto, esperado):
-    assert acciones_pc.texto_hora(datetime(2026, 1, 1, hora, minuto)) == esperado
-
-
-def test_textos_de_duracion_y_bateria():
-    assert acciones_pc.texto_duracion(59 * 60) == "59 minutos"
-    assert acciones_pc.texto_duracion(3600) == "1 hora"
-    assert acciones_pc.texto_duracion(3 * 3600 + 12 * 60) == "3 horas y 12 minutos"
-    assert acciones_pc.texto_duracion(86400 * 2 + 3600 + 60) == "2 días, 1 hora y 1 minuto"
-    assert acciones_pc.texto_bateria(None, True) == "Esta PC no tiene batería."
-    assert acciones_pc.texto_bateria(40, True) == "La batería está al 40 por ciento y está cargando."
-    assert acciones_pc.texto_bateria(40, False).endswith("no está enchufada.")
 
 
 def test_temporizador_llama_al_motor():
@@ -187,5 +156,5 @@ def test_la_lista_del_dialogo_muestra_cada_accion_directamente():
     assert "Acción de la PC" not in configurar.OPCIONES_DE_ACCION
     assert "Energía · Suspender la PC" in configurar.OPCIONES_DE_ACCION
     assert "Abrir programa" in configurar.OPCIONES_DE_ACCION
-    assert len(configurar.OPCIONES_DE_ACCION) == len(set(configurar.OPCIONES_DE_ACCION)) > 100
+    assert len(configurar.OPCIONES_DE_ACCION) == len(set(configurar.OPCIONES_DE_ACCION)) > 50
     assert configurar.accion_en_texto({"tipo": "accion_pc", "valor": "suspender"}) == "Suspender la PC"

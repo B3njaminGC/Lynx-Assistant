@@ -15,7 +15,7 @@ import remoto
 import respaldo
 import importar
 import nucleo
-from configurar import TIPOS, Dialogo, accion_en_texto, valor_en_texto
+from configurar import TIPOS, Dialogo, accion_en_texto, valor_de_comando, valor_en_texto
 
 TRANSPARENTE = "#010101"  # color que Windows deja invisible alrededor del círculo
 COLORES = {  # estado: (color principal, color del halo)
@@ -222,7 +222,7 @@ class VentanaConfiguracion(tk.Toplevel):
                   ).grid(row=1, column=0, columnspan=2, sticky="w", pady=(4, 8))
 
         self.tabla = ttk.Treeview(marco, columns=("frase", "accion", "valor", "respuesta", "confirma"),
-                                  show="headings", selectmode="browse")
+                                  show="headings", selectmode="extended")
         for col, titulo, ancho in (("frase", "Frase", 160), ("accion", "Acción", 130),
                                    ("valor", "Programa / dirección", 260), ("respuesta", "Responde", 170),
                                    ("confirma", "Confirma", 65)):
@@ -234,6 +234,7 @@ class VentanaConfiguracion(tk.Toplevel):
         self.tabla.configure(yscrollcommand=barra.set)
         self.tabla.bind("<Double-1>", lambda e: self.editar())
         self.tabla.bind("<Delete>", lambda e: self.borrar())
+        self.tabla.bind("<Control-a>", lambda e: (self.tabla.selection_set(self.tabla.get_children()), "break")[1])
 
         botones = ttk.Frame(marco)
         botones.grid(row=3, column=0, columnspan=2, sticky="w", pady=(10, 0))
@@ -248,13 +249,17 @@ class VentanaConfiguracion(tk.Toplevel):
         self.tabla.delete(*self.tabla.get_children())
         for i, c in enumerate(self.comandos):
             self.tabla.insert("", "end", iid=str(i), values=(
-                c["frase"], accion_en_texto(c),
-                "" if c.get("tipo") == "accion_pc" else valor_en_texto(c.get("valor", "")),
+                c["frase"], accion_en_texto(c), valor_de_comando(c),
                 c.get("respuesta") or "(automática)", "Sí" if c.get("confirmar") else "No"))
 
+    def _seleccionados(self):
+        """Los comandos marcados (con Ctrl se eligen sueltos, con Shift un rango), en orden de la lista."""
+        return sorted(int(i) for i in self.tabla.selection())
+
     def _seleccionado(self):
-        seleccion = self.tabla.selection()
-        return int(seleccion[0]) if seleccion else None
+        """El comando marcado, o None si no hay ninguno o hay varios."""
+        seleccion = self._seleccionados()
+        return seleccion[0] if len(seleccion) == 1 else None
 
     def _pedir(self, comando=None):
         dialogo = Dialogo(self, comando)
@@ -276,7 +281,7 @@ class VentanaConfiguracion(tk.Toplevel):
     def editar(self):
         i = self._seleccionado()
         if i is None:
-            messagebox.showinfo("Editar", "Elegí un comando de la lista.", parent=self)
+            messagebox.showinfo("Editar", "Elegí un solo comando de la lista para editarlo.", parent=self)
             return
         editado = self._pedir(self.comandos[i])
         if editado:
@@ -284,13 +289,17 @@ class VentanaConfiguracion(tk.Toplevel):
             self._guardar_comandos()
 
     def borrar(self):
-        i = self._seleccionado()
-        if i is None:
-            messagebox.showinfo("Borrar", "Elegí un comando de la lista.", parent=self)
+        elegidos = self._seleccionados()
+        if not elegidos:
+            messagebox.showinfo("Borrar", "Elegí uno o más comandos de la lista (con Ctrl o Shift).", parent=self)
             return
-        if messagebox.askyesno("Borrar", f"¿Borrar el comando '{self.comandos[i]['frase']}'?",
-                               parent=self):
-            del self.comandos[i]
+        if len(elegidos) == 1:
+            pregunta = f"¿Borrar el comando '{self.comandos[elegidos[0]]['frase']}'?"
+        else:
+            pregunta = f"¿Borrar estos {len(elegidos)} comandos?"
+        if messagebox.askyesno("Borrar", pregunta, parent=self):
+            for i in reversed(elegidos):   # de atrás para adelante, así no se corren los números
+                del self.comandos[i]
             self._guardar_comandos()
 
     # ------------------------------------------------------------ micrófono

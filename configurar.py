@@ -3,11 +3,13 @@ Ventana para configurar los comandos del asistente (edita comandos.json).
 Usa tkinter, que ya viene con Python: no hay que instalar nada.
 """
 import json
+import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 import acciones_pc
+import apps_instaladas
 import clic
 import teclas
 
@@ -43,7 +45,7 @@ OPCIONES_DE_ACCION = [n for t, n in TIPOS.items() if t != "accion_pc"] + list(ac
 
 # Etiqueta y ayuda del campo "valor" según el tipo de acción.
 VALOR_AYUDA = {
-    "abrir_programa": "Programa a abrir (usá Buscar para elegirlo):",
+    "abrir_programa": "Programa a abrir (elegí de tus apps instaladas o buscá el archivo):",
     "abrir_web": "Dirección de la página (ej: https://www.youtube.com):",
     "cerrar_programa": "Nombre del programa a cerrar (ej: brave.exe):",
     "cerrar_varios": "Programas a cerrar, uno por línea (ej: brave.exe):",
@@ -84,6 +86,13 @@ def accion_en_texto(cmd):
         accion = acciones_pc.POR_CLAVE.get(cmd.get("valor"))
         return accion.nombre if accion else "Acción que ya no existe"
     return TIPOS.get(cmd.get("tipo"), cmd.get("tipo"))
+
+
+def valor_de_comando(cmd):
+    """Lo que se muestra en la columna del programa o dirección: el nombre de la app si la elegiste de la lista."""
+    if cmd.get("tipo") == "accion_pc":
+        return ""
+    return cmd.get("etiqueta") or valor_en_texto(cmd.get("valor", ""))
 
 
 def valor_en_texto(valor):
@@ -136,6 +145,9 @@ class Dialogo(tk.Toplevel):
         self.var_valor = tk.StringVar()
         self.ent_valor = ttk.Entry(self.fila_valor, textvariable=self.var_valor, width=40)
         self.btn_buscar = ttk.Button(self.fila_valor, text="Buscar...", command=self.buscar_programa)
+        self.btn_apps = ttk.Button(self.fila_valor, text="Elegir de mis apps instaladas...", command=self.elegir_app)
+        self.destino_app = None      # si elegiste una app de la lista: cómo se abre de verdad
+        self.nombre_app = None       # y cómo se llama (es lo que se ve en el campo)
         self.txt_valor = tk.Text(self.fila_valor, width=38, height=5)
         self.btn_canciones = ttk.Button(self.fila_valor, text="Agregar canciones...", command=self.agregar_canciones)
         self.btn_carpeta = ttk.Button(self.fila_valor, text="Agregar carpeta...", command=self.agregar_carpeta)
@@ -172,6 +184,9 @@ class Dialogo(tk.Toplevel):
                 self.combo_multimedia.set(MULTIMEDIA_POR_CLAVE.get(valor, ""))
             elif cmd["tipo"] == "accion_pc":
                 pass   # la acción ya quedó elegida arriba
+            elif cmd["tipo"] == "abrir_programa" and cmd.get("etiqueta") and apps_instaladas.PREFIJO in str(valor):
+                self.destino_app, self.nombre_app = valor, cmd["etiqueta"]
+                self.var_valor.set(cmd["etiqueta"])
             else:
                 self.var_valor.set(valor)
 
@@ -195,7 +210,7 @@ class Dialogo(tk.Toplevel):
     def cambio_tipo(self, es_cambio_del_usuario):
         tipo = self.tipo_actual()
         self.lbl_valor.config(text=VALOR_AYUDA[tipo])
-        for w in (self.ent_valor, self.btn_buscar, self.txt_valor, self.combo_multimedia,
+        for w in (self.ent_valor, self.btn_buscar, self.btn_apps, self.txt_valor, self.combo_multimedia,
                   self.btn_canciones, self.btn_carpeta, self.btn_marcar, self.lbl_posicion):
             w.grid_forget()
         if tipo == "hacer_clic":
@@ -222,6 +237,7 @@ class Dialogo(tk.Toplevel):
             self.ent_valor.grid(row=0, column=0, sticky="we")
             if tipo == "abrir_programa":
                 self.btn_buscar.grid(row=0, column=1, padx=(6, 0))
+                self.btn_apps.grid(row=1, column=0, sticky="w", pady=(6, 0))
         if es_cambio_del_usuario:
             self.var_confirmar.set(tipo in CONFIRMAR_POR_DEFECTO)
 
@@ -264,6 +280,13 @@ class Dialogo(tk.Toplevel):
         if ruta:
             self._agregar_lineas([ruta])
 
+    def elegir_app(self):
+        """Abre la lista de apps instaladas (como el "Abrir con" de Windows) y deja la que elijas."""
+        elegida = SelectorDeApps.pedir(self)
+        if elegida:
+            self.nombre_app, self.destino_app = elegida
+            self.var_valor.set(self.nombre_app)
+
     def buscar_programa(self):
         ruta = filedialog.askopenfilename(
             parent=self, title="Elegí el programa",
@@ -304,6 +327,8 @@ class Dialogo(tk.Toplevel):
             valor = [l if l.lower().endswith(".exe") else l + ".exe" for l in lineas]
         else:
             valor = self.var_valor.get().strip().strip('"')
+            if tipo == "abrir_programa" and self.destino_app and valor == self.nombre_app:
+                valor = self.destino_app     # eligió una app de la lista
             if tipo == "cerrar_programa" and valor and not valor.lower().endswith(".exe"):
                 valor += ".exe"
 
@@ -314,7 +339,97 @@ class Dialogo(tk.Toplevel):
         self.resultado = {"frase": frase, "tipo": tipo, "valor": valor,
                           "respuesta": self.var_respuesta.get().strip(),
                           "confirmar": self.var_confirmar.get()}
+        if tipo == "abrir_programa" and valor == self.destino_app:
+            self.resultado["etiqueta"] = self.nombre_app     # para mostrar "Spotify" y no la ruta técnica
         self.destroy()
+
+
+class SelectorDeApps(tk.Toplevel):
+    """Lista con buscador de las apps instaladas. `SelectorDeApps.pedir(ventana)` devuelve (nombre, destino) o None."""
+    _guardadas = None   # la lista se pide una sola vez por sesión (tarda un par de segundos)
+
+    @classmethod
+    def pedir(cls, padre):
+        selector = cls(padre)
+        padre.wait_window(selector)
+        return selector.resultado
+
+    def __init__(self, padre):
+        super().__init__(padre)
+        self.title("Mis apps instaladas")
+        self.transient(padre)
+        self.resultado = None
+        self.apps = []
+        marco = ttk.Frame(self, padding=14)
+        marco.grid()
+        ttk.Label(marco, text="Escribí para buscar y elegí la app (doble clic para aceptar):").grid(sticky="w")
+        self.var_busqueda = tk.StringVar()
+        self.var_busqueda.trace_add("write", lambda *a: self._mostrar())
+        entrada = ttk.Entry(marco, textvariable=self.var_busqueda, width=50)
+        entrada.grid(sticky="we", pady=(0, 8))
+        cuerpo = ttk.Frame(marco)
+        cuerpo.grid(sticky="nsew")
+        self.lista = tk.Listbox(cuerpo, width=52, height=16, activestyle="none", exportselection=False)
+        self.lista.grid(row=0, column=0)
+        barra = ttk.Scrollbar(cuerpo, orient="vertical", command=self.lista.yview)
+        barra.grid(row=0, column=1, sticky="ns")
+        self.lista.configure(yscrollcommand=barra.set)
+        self.lista.bind("<Double-1>", lambda e: self.aceptar())
+        self.lista.bind("<Return>", lambda e: self.aceptar())
+        entrada.bind("<Return>", lambda e: self.aceptar())
+        self.var_estado = tk.StringVar(value="Buscando tus apps...")
+        ttk.Label(marco, textvariable=self.var_estado).grid(sticky="w", pady=(8, 0))
+        botones = ttk.Frame(marco)
+        botones.grid(sticky="e", pady=(8, 0))
+        ttk.Button(botones, text="Cancelar", command=self.destroy).grid(row=0, column=0, padx=6)
+        ttk.Button(botones, text="Elegir", command=self.aceptar).grid(row=0, column=1)
+
+        if SelectorDeApps._guardadas is not None:
+            self._llegaron(SelectorDeApps._guardadas, None)
+        else:
+            self._pedido = {}
+            threading.Thread(target=self._buscar_en_segundo_plano, daemon=True).start()
+            self.after(150, self._esperar)
+        self.grab_set()
+        self.wait_visibility()
+        entrada.focus_force()
+
+    def _buscar_en_segundo_plano(self):
+        try:
+            self._pedido["apps"] = apps_instaladas.leer()
+        except Exception as error:
+            self._pedido["error"] = str(error)
+
+    def _esperar(self):
+        if not self.winfo_exists():
+            return
+        if "apps" in self._pedido or "error" in self._pedido:
+            self._llegaron(self._pedido.get("apps"), self._pedido.get("error"))
+        else:
+            self.after(150, self._esperar)
+
+    def _llegaron(self, apps, error):
+        if apps is None:
+            self.var_estado.set("No pude leer la lista de apps. Cerrá esto y usá Buscar... para elegir el archivo.")
+            return
+        SelectorDeApps._guardadas = apps
+        self.apps = apps
+        self._mostrar()
+
+    def _mostrar(self):
+        self.visibles = apps_instaladas.filtrar(self.apps, self.var_busqueda.get())
+        self.lista.delete(0, "end")
+        for nombre, _ in self.visibles:
+            self.lista.insert("end", nombre)
+        if self.visibles:
+            self.lista.selection_set(0)
+        self.var_estado.set(f"{len(self.visibles)} de {len(self.apps)} apps")
+
+    def aceptar(self):
+        seleccion = self.lista.curselection()
+        if seleccion:
+            self.resultado = self.visibles[seleccion[0]]
+            self.destroy()
 
 
 class Ventana(tk.Tk):
@@ -358,8 +473,7 @@ class Ventana(tk.Tk):
         self.tabla.delete(*self.tabla.get_children())
         for i, c in enumerate(self.comandos):
             self.tabla.insert("", "end", iid=str(i), values=(
-                c["frase"], accion_en_texto(c),
-                "" if c.get("tipo") == "accion_pc" else valor_en_texto(c.get("valor", "")),
+                c["frase"], accion_en_texto(c), valor_de_comando(c),
                 "Sí" if c.get("confirmar") else "No"))
 
     def seleccionado(self):

@@ -53,7 +53,7 @@ ahí los editás en la pestaña **Comandos**.
 
 | Tipo | Qué hace |
 |---|---|
-| Abrir programa | Ejecuta un `.exe` o un programa de Windows (`notepad.exe`) |
+| Abrir programa | Abre un programa: lo elegís de la lista de tus apps instaladas (como el "Abrir con" de Windows, incluye las de la Store) o buscás el `.exe` |
 | Cerrar programa | Cierra un proceso por su nombre (`notepad.exe`) |
 | Cerrar varios | Cierra una lista de programas |
 | Abrir página web | Abre un link en tu navegador |
@@ -64,7 +64,7 @@ ahí los editás en la pestaña **Comandos**.
 | Reproducir música (VLC) | Reproduce canciones o carpetas enteras con VLC |
 | Música y volumen | Pista siguiente/anterior, pausa, subir/bajar volumen, silenciar (funciona con Spotify, YouTube y casi cualquier reproductor) |
 | Ejecutar un comando o script | Corre un `.bat`, `.ps1`, `.py` o cualquier comando de Windows |
-| Acciones de la PC | Más de cien, que aparecen directamente en la lista "¿Qué tiene que hacer?" (ver abajo) |
+| Acciones de la PC | Más de sesenta, que aparecen directamente en la lista "¿Qué tiene que hacer?" (ver abajo) |
 
 ### Acciones de la PC
 
@@ -79,9 +79,6 @@ Vos elegís la acción y escribís la frase que querés decir. Todo funciona sin
 | Edición y navegador | copiar, pegar, deshacer, guardar, nueva/cerrar/reabrir pestaña, recargar, volver atrás, buscar en la página |
 | Volumen y brillo | volumen al máximo/mitad/bajito, subir/bajar el brillo, brillo al máximo/mitad/mínimo |
 | Apariencia y limpieza | modo oscuro/claro, vaciar la papelera, reiniciar el Explorador |
-| Programas y ajustes de Windows | administrador de tareas, calculadora, Paint, panel de control, Windows Update, sonido, Wi-Fi, Bluetooth... |
-| Carpetas | Descargas, Documentos, Escritorio, Imágenes, Música, Videos, papelera |
-| Información | la hora, la fecha, batería, memoria en uso, espacio libre, hace cuánto está encendida la PC, la IP |
 | Temporizador | de 5, 10, 15, 30 minutos o 1 hora; avisa cuando termina (sin cortarte si le estás dando una orden) |
 
 Las acciones que pueden hacerte perder trabajo (reiniciar, cerrar sesión, cerrar la ventana, vaciar la papelera)

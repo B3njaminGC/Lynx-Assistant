@@ -11,20 +11,16 @@ Cada acción es una fila de la tabla CATALOGO, así que agregar una nueva es agr
     ("correr", ["shutdown", ...])  corre un comando de Windows
     ("powershell", "script")       corre un script corto de PowerShell
     ("funcion", "nombre")          una función de este archivo (ver FUNCIONES)
-    ("informe", "nombre")          Lynx dice un dato en voz alta (ver INFORMES)
     ("temporizador", minutos)      avisa cuando pasa el tiempo (0 = cancela el temporizador)
 
 Todo funciona sin internet y sin instalar nada: usa solo lo que trae Windows.
 """
 import ctypes
 import os
-import shutil
-import socket
 import subprocess
 import sys
 import time
 from collections import namedtuple
-from datetime import datetime
 
 Accion = namedtuple("Accion", "clave grupo nombre como respuesta confirmar")
 
@@ -41,10 +37,6 @@ CAPTURA = "Captura y grabación"
 EDICION = "Edición y navegador"
 VOLUMEN = "Volumen y brillo"
 SISTEMA = "Apariencia y limpieza"
-PROGRAMAS = "Abrir programas de Windows"
-AJUSTES = "Abrir ajustes de Windows"
-CARPETAS = "Abrir carpetas"
-INFO = "Información (Lynx te lo dice)"
 TEMPORIZADOR = "Temporizador"
 
 CATALOGO = [
@@ -125,54 +117,6 @@ CATALOGO = [
     _a("reiniciar_explorador", SISTEMA, "Reiniciar el Explorador (si Windows se traba)",
        ("powershell", "Stop-Process -Name explorer -Force"), "Listo.", True),
 
-    # ------------------------------------------------------------------ programas de Windows
-    _a("administrador_tareas", PROGRAMAS, "Administrador de tareas", ("abrir", "taskmgr"), "Abriendo."),
-    _a("explorador", PROGRAMAS, "Explorador de archivos", ("abrir", "explorer"), "Abriendo."),
-    _a("calculadora", PROGRAMAS, "Calculadora", ("abrir", "calc"), "Abriendo."),
-    _a("bloc_de_notas", PROGRAMAS, "Bloc de notas", ("abrir", "notepad"), "Abriendo."),
-    _a("paint", PROGRAMAS, "Paint", ("abrir", "mspaint"), "Abriendo."),
-    _a("simbolo_del_sistema", PROGRAMAS, "Símbolo del sistema", ("abrir", "cmd"), "Abriendo."),
-    _a("powershell", PROGRAMAS, "PowerShell", ("abrir", "powershell"), "Abriendo."),
-    _a("panel_de_control", PROGRAMAS, "Panel de control", ("abrir", "control"), "Abriendo."),
-    _a("administrador_dispositivos", PROGRAMAS, "Administrador de dispositivos", ("abrir", "devmgmt.msc"),
-       "Abriendo."),
-    _a("monitor_recursos", PROGRAMAS, "Monitor de recursos", ("abrir", "resmon"), "Abriendo."),
-    _a("info_sistema", PROGRAMAS, "Información del sistema", ("abrir", "msinfo32"), "Abriendo."),
-    _a("tienda", PROGRAMAS, "Microsoft Store", ("abrir", "ms-windows-store:"), "Abriendo."),
-    _a("camara", PROGRAMAS, "Cámara", ("abrir", "microsoft.windows.camera:"), "Abriendo."),
-    _a("reloj", PROGRAMAS, "Reloj y alarmas", ("abrir", "ms-clock:"), "Abriendo."),
-    _a("fotos", PROGRAMAS, "Fotos", ("abrir", "ms-photos:"), "Abriendo."),
-    _a("seguridad_windows", PROGRAMAS, "Seguridad de Windows", ("abrir", "windowsdefender:"), "Abriendo."),
-
-    # ------------------------------------------------------------------ ajustes de Windows
-    _a("ajustes", AJUSTES, "Configuración de Windows", ("abrir", "ms-settings:"), "Abriendo."),
-    _a("ajustes_sonido", AJUSTES, "Ajustes de sonido", ("abrir", "ms-settings:sound"), "Abriendo."),
-    _a("ajustes_pantalla", AJUSTES, "Ajustes de pantalla", ("abrir", "ms-settings:display"), "Abriendo."),
-    _a("ajustes_wifi", AJUSTES, "Ajustes de Wi-Fi", ("abrir", "ms-settings:network-wifi"), "Abriendo."),
-    _a("ajustes_bluetooth", AJUSTES, "Ajustes de Bluetooth", ("abrir", "ms-settings:bluetooth"), "Abriendo."),
-    _a("ajustes_bateria", AJUSTES, "Ajustes de batería", ("abrir", "ms-settings:batterysaver"), "Abriendo."),
-    _a("ajustes_actualizaciones", AJUSTES, "Windows Update", ("abrir", "ms-settings:windowsupdate"), "Abriendo."),
-    _a("ajustes_aplicaciones", AJUSTES, "Programas instalados", ("abrir", "ms-settings:appsfeatures"),
-       "Abriendo."),
-
-    # ------------------------------------------------------------------ carpetas
-    _a("carpeta_descargas", CARPETAS, "Carpeta Descargas", ("abrir", "shell:Downloads"), "Abriendo."),
-    _a("carpeta_documentos", CARPETAS, "Carpeta Documentos", ("abrir", "shell:Personal"), "Abriendo."),
-    _a("carpeta_escritorio", CARPETAS, "Carpeta Escritorio", ("abrir", "shell:Desktop"), "Abriendo."),
-    _a("carpeta_imagenes", CARPETAS, "Carpeta Imágenes", ("abrir", "shell:My Pictures"), "Abriendo."),
-    _a("carpeta_musica", CARPETAS, "Carpeta Música", ("abrir", "shell:My Music"), "Abriendo."),
-    _a("carpeta_videos", CARPETAS, "Carpeta Videos", ("abrir", "shell:My Video"), "Abriendo."),
-    _a("abrir_papelera", CARPETAS, "Abrir la papelera", ("abrir", "shell:RecycleBinFolder"), "Abriendo."),
-
-    # ------------------------------------------------------------------ información
-    _a("decir_hora", INFO, "Decir la hora", ("informe", "hora"), ""),
-    _a("decir_fecha", INFO, "Decir la fecha", ("informe", "fecha"), ""),
-    _a("decir_bateria", INFO, "Decir cuánta batería queda", ("informe", "bateria"), ""),
-    _a("decir_memoria", INFO, "Decir cuánta memoria (RAM) se usa", ("informe", "memoria"), ""),
-    _a("decir_disco", INFO, "Decir cuánto espacio libre queda", ("informe", "disco"), ""),
-    _a("decir_encendida", INFO, "Decir hace cuánto está encendida la PC", ("informe", "encendida"), ""),
-    _a("decir_ip", INFO, "Decir la IP de la PC", ("informe", "ip"), ""),
-
     # ------------------------------------------------------------------ temporizador
     _a("temporizador_5", TEMPORIZADOR, "Temporizador de 5 minutos", ("temporizador", 5),
        "Listo, te aviso en cinco minutos."),
@@ -212,13 +156,12 @@ def respuesta_por_defecto(clave):
 class Entorno:
     """Todo lo que una acción necesita del exterior, junto en un lugar (así se puede probar con uno de juguete)."""
 
-    def __init__(self, hablar, pulsar=None, abrir=None, correr=None, temporizador=None, ahora=datetime.now):
+    def __init__(self, hablar, pulsar=None, abrir=None, correr=None, temporizador=None):
         self.hablar = hablar
         self.pulsar = pulsar or _pulsar_real
         self.abrir = abrir or _abrir_real
         self.correr = correr or _correr_real
         self.temporizador = temporizador
-        self.ahora = ahora
 
 
 def _pulsar_real(texto):
@@ -255,8 +198,6 @@ def ejecutar(clave, entorno, respuesta=None):
         elif modo == "funcion":
             cambio = FUNCIONES[dato](entorno)
             texto = cambio if cambio else texto
-        elif modo == "informe":
-            texto = INFORMES[dato](entorno)
         elif modo == "temporizador":
             entorno.temporizador(dato)
     except Exception as error:
@@ -382,117 +323,3 @@ FUNCIONES = {
     "brillo_medio": brillo_medio, "brillo_minimo": brillo_minimo,
     "modo_oscuro": modo_oscuro, "modo_claro": modo_claro,
 }
-
-
-# ---------------------------------------------------------------------- informes (lo que Lynx dice)
-
-DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
-MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre",
-         "noviembre", "diciembre"]
-
-
-def texto_hora(ahora):
-    hora12 = ahora.hour % 12 or 12
-    comienzo = "Es la una" if hora12 == 1 else f"Son las {hora12}"
-    minutos = {0: "en punto", 15: "y cuarto", 30: "y media"}.get(ahora.minute, f"y {ahora.minute}")
-    if ahora.hour < 6:
-        momento = "de la madrugada"
-    elif ahora.hour < 12:
-        momento = "de la mañana"
-    elif ahora.hour < 20:
-        momento = "de la tarde"
-    else:
-        momento = "de la noche"
-    return f"{comienzo} {minutos} {momento}."
-
-
-def texto_fecha(ahora):
-    return f"Hoy es {DIAS[ahora.weekday()]} {ahora.day} de {MESES[ahora.month - 1]} de {ahora.year}."
-
-
-def texto_duracion(segundos):
-    minutos = int(segundos // 60)
-    dias, resto = divmod(minutos, 1440)
-    horas, minutos = divmod(resto, 60)
-    partes = []
-    if dias:
-        partes.append(f"{dias} día" + ("s" if dias != 1 else ""))
-    if horas:
-        partes.append(f"{horas} hora" + ("s" if horas != 1 else ""))
-    if minutos or not partes:
-        partes.append(f"{minutos} minuto" + ("s" if minutos != 1 else ""))
-    return " y ".join(partes) if len(partes) < 3 else f"{partes[0]}, {partes[1]} y {partes[2]}"
-
-
-def texto_bateria(porcentaje, enchufada):
-    if porcentaje is None:
-        return "Esta PC no tiene batería."
-    estado = "y está cargando" if enchufada else "y no está enchufada"
-    return f"La batería está al {porcentaje} por ciento {estado}."
-
-
-class _EstadoEnergia(ctypes.Structure):
-    _fields_ = [("linea", ctypes.c_ubyte), ("bandera", ctypes.c_ubyte), ("porcentaje", ctypes.c_ubyte),
-                ("ahorro", ctypes.c_ubyte), ("segundos", ctypes.c_ulong), ("segundos_carga", ctypes.c_ulong)]
-
-
-def _leer_bateria():
-    estado = _EstadoEnergia()
-    ctypes.windll.kernel32.GetSystemPowerStatus(ctypes.byref(estado))
-    sin_bateria = estado.porcentaje == 255 or estado.bandera & 128
-    return (None if sin_bateria else estado.porcentaje), estado.linea == 1
-
-
-class _EstadoMemoria(ctypes.Structure):
-    _fields_ = [("largo", ctypes.c_ulong), ("uso", ctypes.c_ulong), ("total", ctypes.c_ulonglong),
-                ("libre", ctypes.c_ulonglong), ("pag_total", ctypes.c_ulonglong),
-                ("pag_libre", ctypes.c_ulonglong), ("virt_total", ctypes.c_ulonglong),
-                ("virt_libre", ctypes.c_ulonglong), ("ext", ctypes.c_ulonglong)]
-
-
-def _leer_memoria():
-    estado = _EstadoMemoria()
-    estado.largo = ctypes.sizeof(_EstadoMemoria)
-    ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(estado))
-    return estado.uso, estado.total / 2 ** 30
-
-
-def _informe_hora(entorno):
-    return texto_hora(entorno.ahora())
-
-
-def _informe_fecha(entorno):
-    return texto_fecha(entorno.ahora())
-
-
-def _informe_bateria(entorno):
-    return texto_bateria(*_leer_bateria())
-
-
-def _informe_memoria(entorno):
-    uso, total = _leer_memoria()
-    return f"Estás usando el {uso} por ciento de la memoria, de {total:.0f} gigas."
-
-
-def _informe_disco(entorno):
-    libre = shutil.disk_usage(os.environ.get("SystemDrive", "C:") + "\\").free / 2 ** 30
-    return f"Quedan {libre:.0f} gigas libres en el disco del sistema."
-
-
-def _informe_encendida(entorno):
-    segundos = ctypes.windll.kernel32.GetTickCount64() / 1000
-    return f"La PC lleva encendida {texto_duracion(segundos)}."
-
-
-def _informe_ip(entorno):
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(("10.255.255.255", 1))   # no manda nada: solo averigua por qué placa saldría
-        ip = s.getsockname()[0]
-    finally:
-        s.close()
-    return "La IP de esta PC es " + ip.replace(".", " punto ") + "."
-
-
-INFORMES = {"hora": _informe_hora, "fecha": _informe_fecha, "bateria": _informe_bateria,
-            "memoria": _informe_memoria, "disco": _informe_disco, "encendida": _informe_encendida, "ip": _informe_ip}

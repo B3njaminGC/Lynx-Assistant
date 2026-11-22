@@ -4,10 +4,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ## [1.6] — 2026-11-22
 ### Agregado
-- Más de cien **acciones de la PC** que aparecen directamente en la lista "¿Qué tiene que hacer?" (suspender, hibernar, reiniciar,
-  bloquear, apagar la pantalla, apagar en X tiempo, ventanas y escritorios virtuales, captura y grabación de pantalla,
-  copiar/pegar y atajos del navegador, volumen y brillo, modo oscuro/claro, vaciar la papelera, abrir programas,
-  ajustes y carpetas de Windows, decir la hora/fecha/batería/memoria/espacio/IP, temporizadores).
+- Más de sesenta **acciones de la PC** que aparecen directamente en la lista "¿Qué tiene que hacer?" (suspender, hibernar,
+  reiniciar, bloquear, apagar la pantalla, apagar en X tiempo, ventanas y escritorios virtuales, captura y grabación de
+  pantalla, copiar/pegar y atajos del navegador, volumen y brillo, modo oscuro/claro, vaciar la papelera, temporizadores).
+- **Abrir programa** ahora deja elegir de la lista de apps instaladas (programas de escritorio y de la Store), con buscador.
+- La lista de comandos permite **seleccionar varios** (Ctrl para sueltos, Shift para un rango) y borrarlos juntos.
 - Tipo **Ejecutar un comando o script** (`.bat`, `.ps1`, `.py` o cualquier comando).
 - Los temporizadores avisan en voz alta al terminar, sin interrumpir mientras Lynx espera una orden.
 
