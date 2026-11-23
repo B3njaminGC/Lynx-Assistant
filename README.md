@@ -101,7 +101,7 @@ chica con tu imagen, siempre encima de lo demás.
 **Gestos** (ejecutá `instalar_gestos.bat` una vez; instala MediaPipe, unos 100 MB. La primera vez que prendas la cámara, Lynx baja un modelo de 7 MB: hace falta internet solo esa vez):
 
 1. Mostrá la **palma abierta, quieta, 1 segundo**. Suena un pitido agudo y el marco de la ventanita se pone azul: Lynx está atento unos segundos.
-2. Con la mano abierta, **deslizá a la izquierda o a la derecha**, o **cerrá el puño**. Cada gesto suena con un pitido corto.
+2. Con la mano abierta, **deslizá a la izquierda o a la derecha**, o **cerrá el puño**. Cada gesto suena con un pitido corto, y la ventanita muestra el último que entendió.
    Si no hacés nada, se duerme solo (pitido grave) y hay que volver a mostrar la palma.
 3. Lo que hace cada gesto depende de la aplicación que tengas adelante:
 

@@ -275,6 +275,7 @@ class ControlDeCamara:
         self.ventana = None
         self.inactividad = None
         self.ultimo_cuadro = None
+        self.ultimo_gesto = ""
 
     @property
     def encendida(self):
@@ -376,6 +377,7 @@ class ControlDeCamara:
             while True:
                 gesto = eventos.get_nowait()
                 self.inactividad.hubo_actividad()
+                self.ultimo_gesto = gesto
                 self.al_gesto(gesto)
         except queue.Empty:
             pass
@@ -389,5 +391,10 @@ class ControlDeCamara:
                 return f"Sin gestos: {motivo} · se apaga en {cuenta}" if motivo else f"Sin gestos · se apaga en {cuenta}"
             return f"Se apaga sola en {cuenta}"
         if getattr(captura, "atento", False):
-            return f"ATENTO: deslizá o cerrá el puño ({int(captura.segundos_atento + 0.99)} s)"
-        return f"Palma quieta 1 s para activar · se apaga en {cuenta}"
+            return f"ATENTO: deslizá o cerrá el puño ({int(captura.segundos_atento + 0.99)} s)" + self._ultimo()
+        return f"Palma quieta 1 s para activar · se apaga en {cuenta}" + self._ultimo()
+
+    def _ultimo(self):
+        """El último gesto que entendió, para que veas qué está detectando."""
+        nombres = {"deslizar_der": "→", "deslizar_izq": "←", "puño": "puño", "activado": "activado"}
+        return f" · último: {nombres.get(self.ultimo_gesto, self.ultimo_gesto)}" if self.ultimo_gesto else ""

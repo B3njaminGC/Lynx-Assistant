@@ -134,7 +134,7 @@ def test_cada_gesto_mantiene_atento_un_rato_mas():
 def test_enfriamiento_entre_gestos():
     r = activado()
     der = [(1.3 + i * 0.1, mano(x=0.5 + 0.1 * (i + 1))) for i in range(5)]
-    seguido = [(1.8 + i * 0.1, mano(x=0.4 + i * 0.1)) for i in range(5)]   # otro enseguida: dentro del enfriamiento
+    seguido = [(1.6 + i * 0.1, mano(x=0.4 + i * 0.1)) for i in range(5)]   # otro enseguida: dentro del enfriamiento
     eventos = [e for _, e in correr(r, der + seguido)]
     assert eventos.count("deslizar_der") == 1
 
@@ -260,3 +260,20 @@ def test_detector_con_la_interfaz_nueva_de_mediapipe(monkeypatch, tmp_path):
     assert vistos[0] < vistos[1] < vistos[2]       # las marcas de tiempo siempre crecen
     d.cerrar()
     assert vistos[-1] == "cerrado"
+
+
+def test_deslizar_cuenta_aunque_la_mano_salga_borrosa():
+    r = activado()
+    pasos = []
+    for i in range(5):
+        puntos = mano(x=0.5 + 0.1 * (i + 1))
+        if i == 2:
+            puntos = mano((True, True, False, True), x=0.5 + 0.1 * (i + 1))   # un cuadro mal reconocido
+        pasos.append((1.3 + i * 0.1, puntos))
+    assert [e for _, e in correr(r, pasos)] == ["deslizar_der"]
+
+
+def test_un_deslizar_lento_no_cuenta():
+    r = activado()
+    lento = [(1.3 + i * 0.25, mano(x=0.5 + 0.05 * i)) for i in range(10)]   # 0.45 de recorrido en 2 s
+    assert correr(r, lento) == []

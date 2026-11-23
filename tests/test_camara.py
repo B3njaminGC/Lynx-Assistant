@@ -340,3 +340,12 @@ def test_texto_de_estado_segun_los_gestos(monkeypatch):
     control.config["camara_gestos"] = False   # si los apagaste vos, no insiste con instalarlos
     control.vigilar()
     assert "Sin gestos" not in control.ventana.textos[-1]
+
+
+def test_muestra_el_ultimo_gesto_entendido(monkeypatch):
+    con_opencv(monkeypatch)
+    control, *_ = armar()
+    control.encender()
+    control.captura.eventos.put("deslizar_izq")
+    control.vigilar()
+    assert control.ventana.textos[-1].endswith("último: ←")

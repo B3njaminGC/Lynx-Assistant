@@ -125,8 +125,8 @@ class Reconocedor:
     "Derecha" es la derecha tuya (la imagen de la cámara va en espejo).
     """
 
-    def __init__(self, segundos_para_activar=1.0, segundos_atento=6.0, distancia_deslizar=0.25,
-                 ventana_deslizar=0.6, quieta=0.10, segundos_puño=0.3, enfriamiento=0.8):
+    def __init__(self, segundos_para_activar=1.0, segundos_atento=6.0, distancia_deslizar=0.18,
+                 ventana_deslizar=0.8, quieta=0.10, segundos_puño=0.3, enfriamiento=0.8):
         self.segundos_para_activar = segundos_para_activar
         self.segundos_atento = segundos_atento
         self.distancia_deslizar = distancia_deslizar
@@ -181,11 +181,12 @@ class Reconocedor:
 
     def _buscar_gesto(self, clase, centro, ahora, eventos):
         libre = ahora - self._ultimo_gesto >= self.enfriamiento
-        if clase == "palma":
+        if clase != "puño":
+            # Al deslizar rápido la mano se ve borrosa y a veces no se reconoce como palma perfecta: cuenta igual
             self._historial.append((ahora, centro[0], centro[1]))
             while self._historial and ahora - self._historial[0][0] > self.ventana_deslizar:
                 self._historial.popleft()
-            gesto = self._deslizo(centro) if libre else None
+            gesto = self._deslizo() if libre else None
             if gesto:
                 self._historial.clear()
                 self._dar(gesto, ahora, eventos)
@@ -200,14 +201,18 @@ class Reconocedor:
         else:
             self._puño_desde, self._puño_dado = None, False
 
-    def _deslizo(self, centro):
+    def _deslizo(self):
+        """Se movió de costado lo suficiente en poco tiempo, y bastante más de costado que hacia arriba o abajo."""
         if len(self._historial) < 3:
             return None
-        _, x0, y0 = self._historial[0]
-        dx, dy = centro[0] - x0, centro[1] - y0
-        if abs(dx) >= self.distancia_deslizar and abs(dy) <= 0.6 * abs(dx):
-            return "deslizar_der" if dx > 0 else "deslizar_izq"
-        return None
+        xs = [x for _, x, _ in self._historial]
+        ys = [y for _, _, y in self._historial]
+        actual = xs[-1]
+        hacia_derecha, hacia_izquierda = actual - min(xs), max(xs) - actual
+        recorrido = max(hacia_derecha, hacia_izquierda)
+        if recorrido < self.distancia_deslizar or (max(ys) - min(ys)) > 0.8 * recorrido:
+            return None
+        return "deslizar_der" if hacia_derecha >= hacia_izquierda else "deslizar_izq"
 
     def _dar(self, gesto, ahora, eventos):
         self._ultimo_gesto = ahora
