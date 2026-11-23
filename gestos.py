@@ -216,11 +216,26 @@ class Reconocedor:
 
 # ------------------------------------------------------------------ lo que toca el exterior
 
-def mediapipe_disponible():
+MOTIVO_FALLA = ""   # por qué no hay gestos (para mostrarlo en la ventanita y anotarlo en el registro)
+
+
+def _modulo_de_manos():
+    """El módulo de manos de MediaPipe; según la versión está en un lugar o en otro."""
+    import mediapipe as mp
     try:
-        import mediapipe as mp
-        return hasattr(mp, "solutions")
-    except Exception:
+        return mp.solutions.hands
+    except AttributeError:
+        from mediapipe.python.solutions import hands
+        return hands
+
+
+def mediapipe_disponible():
+    global MOTIVO_FALLA
+    try:
+        _modulo_de_manos()
+        return True
+    except Exception as error:
+        MOTIVO_FALLA = f"{type(error).__name__}: {error}"
         return False
 
 
@@ -228,8 +243,7 @@ class DetectorDeManos:
     """Encuentra los 21 puntos de una mano en una imagen RGB (MediaPipe, todo en tu PC, sin internet)."""
 
     def __init__(self):
-        import mediapipe as mp
-        self._manos = mp.solutions.hands.Hands(
+        self._manos = _modulo_de_manos().Hands(
             static_image_mode=False, max_num_hands=1, model_complexity=0,
             min_detection_confidence=0.6, min_tracking_confidence=0.5)
 
@@ -247,12 +261,14 @@ class DetectorDeManos:
 
 
 def detector_por_defecto():
-    """Un detector de manos, o None si MediaPipe no está instalado (la cámara sigue andando sin gestos)."""
+    """Un detector de manos, o None si no se puede (la cámara sigue andando sin gestos; el motivo queda en MOTIVO_FALLA)."""
+    global MOTIVO_FALLA
     if not mediapipe_disponible():
         return None
     try:
         return DetectorDeManos()
-    except Exception:
+    except Exception as error:
+        MOTIVO_FALLA = f"{type(error).__name__}: {error}"
         return None
 
 

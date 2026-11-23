@@ -184,3 +184,12 @@ def test_ejecutar_valor():
     assert not gestos.ejecutar_valor("", **args)
     assert not gestos.ejecutar_valor("cosa_rara", **args)
     assert hecho == [("accion", "cambiar_ventana"), ("teclas", "ctrl+tab"), ("media", "pausa")]
+
+
+def test_sin_mediapipe_no_rompe_y_dice_por_que(monkeypatch):
+    import sys
+    monkeypatch.setitem(sys.modules, "mediapipe", None)   # como si no estuviera instalado
+    monkeypatch.setattr(gestos, "MOTIVO_FALLA", "")
+    assert gestos.mediapipe_disponible() is False
+    assert gestos.detector_por_defecto() is None
+    assert "mediapipe" in gestos.MOTIVO_FALLA.lower() or "import" in gestos.MOTIVO_FALLA.lower()

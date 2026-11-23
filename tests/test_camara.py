@@ -336,7 +336,7 @@ def test_texto_de_estado_segun_los_gestos(monkeypatch):
     control.captura.con_gestos, control.captura.atento = False, False
     control.captura.lista.set()
     control.vigilar()
-    assert "instalar_gestos.bat" in control.ventana.textos[-1]
+    assert control.ventana.textos[-1].startswith("Sin gestos")
     control.config["camara_gestos"] = False   # si los apagaste vos, no insiste con instalarlos
     control.vigilar()
-    assert "instalar_gestos" not in control.ventana.textos[-1]
+    assert "Sin gestos" not in control.ventana.textos[-1]

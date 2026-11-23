@@ -33,6 +33,14 @@ FRACCION_MOVIMIENTO = 0.012  # qué parte de la imagen tiene que cambiar para co
 MAXIMO_DE_CAMARAS = 5        # hasta qué número de cámara se busca
 
 
+def _registrar(texto):
+    try:
+        import nucleo
+        nucleo.log(texto)
+    except Exception:
+        pass
+
+
 # ---------------------------------------------------------------- apagado por inactividad
 
 class Inactividad:
@@ -107,6 +115,7 @@ class Captura(threading.Thread):
         self.movimiento = False
         self.actividad = False           # ¿hay alguien usando la cámara? (mano a la vista, o movimiento si no hay gestos)
         self.con_gestos = False          # ¿hay detector de manos andando?
+        self.motivo_sin_gestos = ""      # si no, por qué (texto técnico, para que se pueda arreglar)
         self.atento = False              # los gestos están activados (mostraste la palma)
         self.segundos_atento = 0.0
         self.eventos = queue.Queue()     # gestos detectados, para que la aplicación los atienda
@@ -122,6 +131,9 @@ class Captura(threading.Thread):
                 return
             detector = self._crear_detector() if self.config.get("camara_gestos", True) else None
             self.con_gestos = detector is not None
+            if detector is None and self.config.get("camara_gestos", True):
+                self.motivo_sin_gestos = gestos.MOTIVO_FALLA or "no hay detector de manos"
+                _registrar("[gestos] no hay gestos: " + self.motivo_sin_gestos)
             try:
                 self._leer_en_bucle(camara, detector)
             finally:
@@ -373,7 +385,8 @@ class ControlDeCamara:
         if not getattr(captura, "con_gestos", False):
             quiere_gestos = self.config.get("camara_gestos", True)
             if quiere_gestos and captura.lista.is_set():   # ya abrió y no hay detector de manos
-                return f"Sin gestos (falta instalar_gestos.bat) · se apaga en {cuenta}"
+                motivo = (getattr(captura, "motivo_sin_gestos", "") or "")[:70]
+                return f"Sin gestos: {motivo} · se apaga en {cuenta}" if motivo else f"Sin gestos · se apaga en {cuenta}"
             return f"Se apaga sola en {cuenta}"
         if getattr(captura, "atento", False):
             return f"ATENTO: deslizá o cerrá el puño ({int(captura.segundos_atento + 0.99)} s)"
