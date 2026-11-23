@@ -1,5 +1,8 @@
 """Pruebas de la cámara: el apagado por inactividad, el movimiento y el encendido/apagado (sin cámara real)."""
 
+import queue
+import threading
+
 import numpy as np
 
 import acciones_pc
@@ -21,6 +24,12 @@ class CapturaFalsa:
         self.parada = False
         self.imagen = None
         self.movimiento = False
+        self.actividad = False
+        self.con_gestos = True
+        self.atento = False
+        self.segundos_atento = 0.0
+        self.eventos = queue.Queue()
+        self.lista = threading.Event()
         self.error = ""
         self.empezo = False
 
@@ -168,7 +177,7 @@ def test_el_movimiento_mantiene_la_camara(monkeypatch):
     control.encender()
     for _ in range(5):
         reloj.t += 100
-        control.captura.movimiento = True
+        control.captura.actividad = True
         control.vigilar()
     assert control.encendida and not apagados
 
@@ -183,7 +192,7 @@ def test_muestra_cada_cuadro_nuevo_una_sola_vez(monkeypatch):
     control.captura.imagen = b"cuadro2"
     control.vigilar()
     assert control.ventana.cuadros == [b"cuadro1", b"cuadro2"]
-    assert control.ventana.textos[-1].startswith("Se apaga sola en ")
+    assert "se apaga en " in control.ventana.textos[-1]
 
 
 def test_error_de_camara_se_muestra_y_despues_apaga(monkeypatch):
@@ -294,3 +303,40 @@ def test_captura_si_no_abre_dice_por_que():
     c.start()
     c.join(3)
     assert "No pude abrir" in c.error and c.lista.is_set()
+
+
+# ---------------------------------------------------------------- gestos desde la cámara
+
+def test_un_gesto_llega_a_la_aplicacion_y_cuenta_como_actividad(monkeypatch):
+    con_opencv(monkeypatch)
+    recibidos = []
+    reloj = Reloj()
+    control = camara.ControlDeCamara(None, {"camara_apagar_min": 2}, lambda c: None, None,
+                                     crear_ventana=VentanaFalsa, crear_captura=CapturaFalsa, reloj=reloj,
+                                     al_gesto=recibidos.append)
+    control.encender()
+    reloj.t += 100
+    control.captura.eventos.put("deslizar_der")
+    control.vigilar()
+    assert recibidos == ["deslizar_der"]
+    reloj.t += 100      # sin el gesto ya habría vencido (200 s > 120 s)
+    control.vigilar()
+    assert control.encendida
+
+
+def test_texto_de_estado_segun_los_gestos(monkeypatch):
+    con_opencv(monkeypatch)
+    control, *_ = armar()
+    control.encender()
+    control.vigilar()
+    assert "Palma quieta" in control.ventana.textos[-1]
+    control.captura.atento, control.captura.segundos_atento = True, 4.2
+    control.vigilar()
+    assert control.ventana.textos[-1].startswith("ATENTO") and "5 s" in control.ventana.textos[-1]
+    control.captura.con_gestos, control.captura.atento = False, False
+    control.captura.lista.set()
+    control.vigilar()
+    assert "instalar_gestos.bat" in control.ventana.textos[-1]
+    control.config["camara_gestos"] = False   # si los apagaste vos, no insiste con instalarlos
+    control.vigilar()
+    assert "instalar_gestos" not in control.ventana.textos[-1]

@@ -15,7 +15,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 - Los temporizadores avisan en voz alta al terminar, sin interrumpir mientras Lynx espera una orden.
 - **Cámara** (primera parte): acciones "Encender/Apagar la cámara" con una ventanita que muestra tu imagen; se apaga
   sola tras unos minutos sin movimiento y lo avisa. Solo usa la cámara elegida, no guarda imágenes. Necesita
-  `instalar_camara.bat` (OpenCV). Los gestos de mano vienen después.
+  `instalar_camara.bat` (OpenCV).
+- **Gestos de mano** (con `instalar_gestos.bat`, MediaPipe): palma quieta 1 s para activar; deslizar a los costados
+  y puño. Lo que hacen depende de la app que tengas adelante (navegador, reproductor, PowerPoint o escritorio),
+  con pitidos de aviso. Se cambia en la clave `gestos` de `config.json`.
 
 ## [1.5] — 2026-11-15
 ### Agregado

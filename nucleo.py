@@ -103,7 +103,10 @@ CONFIG_BASE = {
     "personaje_tono": 0,            # semitonos: negativo = más grave (útil si la voz base es de mujer)
     "applio_dir": r"C:\Applio",    # dónde está instalado Applio (lo hace instalar_voz_personaje.bat)
     "camara_indice": 0,             # qué cámara usar (la de la laptop suele ser la 0; la ventanita tiene un botón para cambiar)
-    "camara_apagar_min": 2,         # minutos sin movimiento frente a la cámara antes de que se apague sola
+    "camara_apagar_min": 2,         # minutos sin actividad frente a la cámara antes de que se apague sola
+    "camara_gestos": True,          # usar gestos de mano con la cámara (necesita MediaPipe: instalar_gestos.bat)
+    "gestos_segundos_atento": 6,    # cuánto queda atento a los gestos después de mostrar la palma
+    "gestos": {},                   # tus cambios a lo que hace cada gesto (ver gestos.py)
 }
 
 # Lo que dice el asistente al ejecutar un comando que no tiene respuesta propia.

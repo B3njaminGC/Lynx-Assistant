@@ -65,5 +65,17 @@ motor que lo diga con `Motor.avisar` (lo habla cuando está libre).
   tkinter muestra sin librerías extra. Detecta movimiento comparando cuadros en gris (`hay_movimiento`).
 - `ControlDeCamara.vigilar()` se llama cada 100 ms desde `App._bucle`: dibuja el cuadro y apaga si venció `Inactividad`.
 - Las pruebas (`tests/test_camara.py`) usan una ventana y una cámara de juguete: no hace falta cámara ni pantalla.
-- Falta (parte 2): gestos de mano (activación con la palma, deslizar, puño) y gestos distintos según la app activa.
-  Ahí "actividad" dejará de ser "movimiento" y pasará a ser "hizo un gesto".
+
+### Gestos (`gestos.py`)
+
+- `DetectorDeManos` (MediaPipe) devuelve los 21 puntos de la mano; es lo único de los gestos que no se prueba sin cámara.
+  `Captura` lo crea dentro de su hilo y, si MediaPipe no está, la cámara sigue sin gestos.
+- `clasificar_mano` mira cuántos dedos están estirados (palma / puño / otro) y `Reconocedor.paso(puntos, ahora)`
+  es una máquina de estados: palma quieta 1 s → "activado" → deslizar o puño → "desactivado" por tiempo. Todo recibe el
+  tiempo desde afuera, así `tests/test_gestos.py` lo prueba con manos dibujadas a mano.
+- `valor_de_gesto(gesto, exe, config)` elige qué hacer: tu config, el perfil de la app (`PERFILES_POR_APP`) o el del
+  escritorio. Los valores son claves de `acciones_pc`, `teclas:...` o `media:...`. Para sumar una app, una línea en
+  `PERFILES_POR_APP` (el nombre del `.exe` en minúsculas).
+- `App._hacer_gesto` ejecuta el gesto en un hilo aparte con la app que esté adelante (`ventana_activa_exe`).
+- Falta: una pantalla en la configuración para editar los gestos por app (hoy se hace en `config.json`),
+  y el dedo como mouse (pellizco para hacer clic).

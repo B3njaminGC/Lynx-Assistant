@@ -20,11 +20,14 @@ import tkinter as tk
 from tkinter import messagebox
 
 import estilo
+import acciones_pc
 import actualizar
 import camara
+import gestos
 import nucleo
 import remoto
 import respaldo
+import teclas
 from ventanas import Circulo, VentanaConfiguracion
 
 PUERTO = 47653  # solo sirve para detectar que ya hay otra copia abierta
@@ -69,7 +72,8 @@ class App:
         estilo.aplicar_tema(self.raiz)
         self.raiz.report_callback_exception = self._error_de_tk
         self.circulo = Circulo(self.raiz, self.config, self._estado_visible, self._nivel)
-        self.camara = camara.ControlDeCamara(self.raiz, self.config, nucleo.guardar_config, self._camara_apagada)
+        self.camara = camara.ControlDeCamara(self.raiz, self.config, nucleo.guardar_config, self._camara_apagada,
+                                              al_gesto=self._gesto)
 
         self.arrancar_motor()
         self.remoto = remoto.Remoto(self)  # control desde el celular (solo trabaja si lo activás)
@@ -98,6 +102,37 @@ class App:
             return "Falta instalar OpenCV. Ejecutá instalar_camara.bat."
         self.cola_ui.put("camara_on" if encender else "camara_off")
         return ""
+
+    def _gesto(self, gesto):
+        """Llegó un gesto de la cámara: se atiende en otro hilo para no trabar las ventanas."""
+        threading.Thread(target=self._hacer_gesto, args=(gesto,), daemon=True, name="gesto").start()
+
+    def _hacer_gesto(self, gesto):
+        try:
+            if gesto in ("activado", "desactivado"):
+                self._pitido(1300 if gesto == "activado" else 600, 120)   # agudo = atento, grave = se durmió
+                return
+            motor = self.motor
+            if motor is None:
+                return
+            exe = gestos.ventana_activa_exe()
+            valor = gestos.valor_de_gesto(gesto, exe, self.config)
+            nucleo.log(f"[gesto] {gesto} con {exe or 'el escritorio'}: {valor or 'nada'}")
+            self._pitido(900, 50)
+            entorno = motor._entorno_acciones()
+            gestos.ejecutar_valor(valor, lambda clave: acciones_pc.ejecutar(clave, entorno, ""),
+                                  acciones_pc.POR_CLAVE, teclas.pulsar, motor._tecla_multimedia)
+        except Exception:
+            nucleo.log("[error en un gesto]\n" + traceback.format_exc())
+
+    @staticmethod
+    def _pitido(frecuencia, milisegundos):
+        """Un pitido corto para que sepas que Lynx te entendió (solo Windows)."""
+        try:
+            import winsound
+            winsound.Beep(frecuencia, milisegundos)
+        except Exception:
+            pass
 
     def _camara_apagada(self, motivo):
         """La cámara se apagó sola (inactividad): lo dice. Si la apagaste vos con la voz, ya lo dijo el comando."""

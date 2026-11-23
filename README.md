@@ -87,17 +87,34 @@ vienen con confirmación. Detalles: el brillo solo funciona en pantallas de note
 volumen "al máximo/mitad" se logra bajando y subiendo con las teclas de volumen, porque Windows no deja fijarlo
 sin programas extra.
 
-### Cámara (en preparación)
+### Cámara y gestos de mano
 
-Con las acciones **Cámara · Encender la cámara** y **Cámara · Apagar la cámara** podés prender y apagar por voz una
-ventanita chica con tu imagen, siempre encima de lo demás. Es la base para controlar la PC con gestos de mano
-(todavía no están).
+Con las acciones **Cámara · Encender la cámara** y **Cámara · Apagar la cámara** prendés y apagás por voz una ventanita
+chica con tu imagen, siempre encima de lo demás.
 
 - Usa solo la cámara que elijas (la de la laptop suele ser la 0; la ventanita tiene el botón "Otra cámara").
-- Está apagada hasta que la prendés, y se apaga sola si pasan 2 minutos sin movimiento frente a la cámara
-  (se cambia con `camara_apagar_min` en `config.json`). Al apagarse sola, Lynx lo avisa.
+- Está apagada hasta que la prendés. Se apaga sola si pasan 2 minutos sin que se vea tu mano (sin gestos instalados,
+  sin movimiento frente a la cámara); se cambia con `camara_apagar_min` en `config.json`. Al apagarse sola, Lynx lo avisa.
 - No graba ni guarda nada, y no sale nada de tu PC. La luz de la cámara queda prendida mientras se usa.
 - Necesita OpenCV: ejecutá `instalar_camara.bat` una vez.
+
+**Gestos** (ejecutá `instalar_gestos.bat` una vez; instala MediaPipe, unos 100 MB):
+
+1. Mostrá la **palma abierta, quieta, 1 segundo**. Suena un pitido agudo y el marco de la ventanita se pone azul: Lynx está atento unos segundos.
+2. Con la mano abierta, **deslizá a la izquierda o a la derecha**, o **cerrá el puño**. Cada gesto suena con un pitido corto.
+   Si no hacés nada, se duerme solo (pitido grave) y hay que volver a mostrar la palma.
+3. Lo que hace cada gesto depende de la aplicación que tengas adelante:
+
+| Adelante tenés | Deslizar → | Deslizar ← | Puño |
+|---|---|---|---|
+| Escritorio u otra app | cambiar de ventana | ventana anterior | mostrar el escritorio |
+| Navegador (Chrome, Edge, Brave, Firefox...) | pestaña siguiente | pestaña anterior | pausa / play |
+| Reproductor (Spotify, VLC...) | canción siguiente | canción anterior | pausa / play |
+| PowerPoint o PDF | diapositiva siguiente | diapositiva anterior | salir (Esc) |
+
+"Derecha" es tu derecha. El ratón y el teclado siguen siendo tuyos: los gestos solo mandan las mismas teclas que
+apretarías vos, a la app que tengas adelante. Para cambiar qué hace un gesto, mirá `gestos.py` (clave `gestos` de `config.json`).
+Con poca luz la mano se reconoce peor. Si no instalaste MediaPipe, la cámara anda igual pero sin gestos.
 
 ### Comandos dentro de un juego
 

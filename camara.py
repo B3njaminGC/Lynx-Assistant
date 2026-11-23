@@ -11,19 +11,23 @@ Partes (cada una se prueba por separado):
   - VentanaCamara        la ventanita (tkinter) con la imagen y el aviso de apagado.
   - ControlDeCamara      lo que usa la aplicación: encender, apagar, y vigilar el apagado automático.
 
-Por ahora "actividad" = movimiento frente a la cámara. Cuando se sumen los gestos de mano,
-la actividad pasará a ser hacer un gesto.
+"Actividad" (lo que evita que se apague sola): si hay gestos instalados, que se vea tu mano; si no, que
+haya movimiento frente a la cámara. Los gestos (gestos.py) usan MediaPipe, que instala instalar_gestos.bat.
 
 Necesita OpenCV (lo instala instalar_camara.bat). Sin OpenCV Lynx sigue funcionando igual: solo avisa
-que falta para usar la cámara.
+que falta para usar la cámara. Sin MediaPipe la cámara anda, pero sin gestos.
 """
 
+import queue
 import sys
 import threading
 import time
 
+import gestos
+
 ANCHO, ALTO = 320, 240       # tamaño de la imagen que se muestra (chico: gasta poco)
 CUADROS_POR_SEGUNDO = 8      # alcanza para ver tu imagen y detectar movimiento
+CUADROS_CON_GESTOS = 12      # con gestos hace falta un poco más para no perderse un deslizamiento
 UMBRAL_CAMBIO = 25           # cuánto tiene que cambiar un punto (0 a 255) para contar como movimiento
 FRACCION_MOVIMIENTO = 0.012  # qué parte de la imagen tiene que cambiar para contar como movimiento
 MAXIMO_DE_CAMARAS = 5        # hasta qué número de cámara se busca
@@ -92,13 +96,20 @@ def opencv_disponible():
 class Captura(threading.Thread):
     """Lee la cámara en segundo plano. Deja en `imagen` el último cuadro (PPM) y en `movimiento` si algo se movió."""
 
-    def __init__(self, indice, abrir=_abrir):
+    def __init__(self, indice, abrir=_abrir, crear_detector=gestos.detector_por_defecto, config=None):
         super().__init__(daemon=True, name="camara")
         self.indice = indice
         self._abrir = abrir
+        self._crear_detector = crear_detector
+        self.config = config or {}
         self.parar = threading.Event()
         self.imagen = None
         self.movimiento = False
+        self.actividad = False           # ¿hay alguien usando la cámara? (mano a la vista, o movimiento si no hay gestos)
+        self.con_gestos = False          # ¿hay detector de manos andando?
+        self.atento = False              # los gestos están activados (mostraste la palma)
+        self.segundos_atento = 0.0
+        self.eventos = queue.Queue()     # gestos detectados, para que la aplicación los atienda
         self.error = ""
         self.lista = threading.Event()   # ya abrió (o falló): la ventana puede mostrar algo
 
@@ -109,7 +120,13 @@ class Captura(threading.Thread):
             if camara is None or not camara.isOpened():
                 self.error = "No pude abrir esa cámara. ¿La está usando otro programa?"
                 return
-            self._leer_en_bucle(camara)
+            detector = self._crear_detector() if self.config.get("camara_gestos", True) else None
+            self.con_gestos = detector is not None
+            try:
+                self._leer_en_bucle(camara, detector)
+            finally:
+                if detector is not None:
+                    detector.cerrar()
         except Exception as error:
             self.error = f"Falló la cámara: {error}"
         finally:
@@ -120,9 +137,10 @@ class Captura(threading.Thread):
                 except Exception:
                     pass
 
-    def _leer_en_bucle(self, camara):
+    def _leer_en_bucle(self, camara, detector=None):
         import cv2
-        espera = 1.0 / CUADROS_POR_SEGUNDO
+        espera = 1.0 / (CUADROS_CON_GESTOS if detector is not None else CUADROS_POR_SEGUNDO)
+        reconocedor = gestos.Reconocedor(segundos_atento=float(self.config.get("gestos_segundos_atento", 6) or 6))
         anterior = None
         fallos = 0
         while not self.parar.is_set():
@@ -140,14 +158,30 @@ class Captura(threading.Thread):
             gris = cv2.GaussianBlur(cv2.resize(cv2.cvtColor(cuadro, cv2.COLOR_BGR2GRAY), (64, 48)), (5, 5), 0)
             self.movimiento = hay_movimiento(anterior, gris)
             anterior = gris
-            if self.movimiento:   # marco verde: "te estoy viendo moverte"
-                cv2.rectangle(cuadro, (2, 2), (ANCHO - 3, ALTO - 3), (80, 220, 80), 3)
             rgb = cv2.cvtColor(cuadro, cv2.COLOR_BGR2RGB)
+            puntos = None
+            if detector is not None:
+                puntos = detector.buscar(rgb)
+                for gesto in reconocedor.paso(puntos, time.monotonic()):
+                    self.eventos.put(gesto)
+                self.atento = reconocedor.armado
+                self.segundos_atento = reconocedor.segundos_atento_restantes(time.monotonic())
+            self.actividad = (puntos is not None) if detector is not None else self.movimiento
+            self._dibujar(cv2, rgb, puntos)
             self.imagen = a_imagen_ppm(rgb.tobytes(), ANCHO, ALTO)
             self.lista.set()
             resto = espera - (time.monotonic() - empezo)
             if resto > 0:
                 time.sleep(resto)
+
+    def _dibujar(self, cv2, rgb, puntos):
+        """Marco verde = te veo; marco azul = gestos activados. Puntitos sobre la mano si se ve."""
+        if self.atento:
+            cv2.rectangle(rgb, (2, 2), (ANCHO - 3, ALTO - 3), (70, 140, 255), 4)
+        elif self.actividad:
+            cv2.rectangle(rgb, (2, 2), (ANCHO - 3, ALTO - 3), (80, 220, 80), 3)
+        for x, y in puntos or ():
+            cv2.circle(rgb, (int(x * ANCHO), int(y * ALTO)), 3, (255, 255, 255), -1)
 
 
 # ---------------------------------------------------------------- la ventanita
@@ -216,11 +250,12 @@ class ControlDeCamara:
     """
 
     def __init__(self, raiz, config, guardar_config, al_apagar=None, crear_ventana=VentanaCamara,
-                 crear_captura=Captura, reloj=time.monotonic):
+                 crear_captura=Captura, reloj=time.monotonic, al_gesto=None):
         self.raiz = raiz
         self.config = config
         self.guardar_config = guardar_config
         self.al_apagar = al_apagar or (lambda motivo: None)
+        self.al_gesto = al_gesto or (lambda gesto: None)   # se llama con cada gesto detectado
         self.crear_ventana = crear_ventana
         self.crear_captura = crear_captura
         self.reloj = reloj
@@ -246,10 +281,16 @@ class ControlDeCamara:
         if not opencv_disponible():
             return "Falta instalar OpenCV. Ejecutá instalar_camara.bat y probá de nuevo."
         self.inactividad = Inactividad(self.config.get("camara_apagar_min", 2), self.reloj)
-        self.captura = self.crear_captura(self.indice())
+        self.captura = self._nueva_captura(self.indice())
         self.captura.start()
         self.ventana = self.crear_ventana(self.raiz, self.apagar_por_ventana, self.cambiar_de_camara, self.indice())
         return ""
+
+    def _nueva_captura(self, indice):
+        try:
+            return self.crear_captura(indice, config=self.config)
+        except TypeError:   # una captura de prueba que no recibe la configuración
+            return self.crear_captura(indice)
 
     def apagar(self, motivo="voz"):
         if not self.encendida:
@@ -281,7 +322,7 @@ class ControlDeCamara:
             pass
         if self.encendida:
             self.captura.parar.set()
-            self.captura = self.crear_captura(siguiente)
+            self.captura = self._nueva_captura(siguiente)
             self.captura.start()
             self.ultimo_cuadro = None
             self.inactividad.hubo_actividad()
@@ -302,8 +343,9 @@ class ControlDeCamara:
                 return
             self.apagar("error")
             return
-        if captura.movimiento:
+        if captura.actividad:
             self.inactividad.hubo_actividad()
+        self._atender_gestos(captura)
         if self.inactividad.vencio():
             self.apagar("inactividad")
             return
@@ -312,4 +354,27 @@ class ControlDeCamara:
             if self.ventana is not None:
                 self.ventana.mostrar(captura.imagen)
         if self.ventana is not None:
-            self.ventana.texto("Se apaga sola en " + texto_de_cuenta_regresiva(self.inactividad.segundos_restantes()))
+            self.ventana.texto(self._texto_de_estado(captura))
+
+    def _atender_gestos(self, captura):
+        eventos = getattr(captura, "eventos", None)
+        if eventos is None:
+            return
+        try:
+            while True:
+                gesto = eventos.get_nowait()
+                self.inactividad.hubo_actividad()
+                self.al_gesto(gesto)
+        except queue.Empty:
+            pass
+
+    def _texto_de_estado(self, captura):
+        cuenta = texto_de_cuenta_regresiva(self.inactividad.segundos_restantes())
+        if not getattr(captura, "con_gestos", False):
+            quiere_gestos = self.config.get("camara_gestos", True)
+            if quiere_gestos and captura.lista.is_set():   # ya abrió y no hay detector de manos
+                return f"Sin gestos (falta instalar_gestos.bat) · se apaga en {cuenta}"
+            return f"Se apaga sola en {cuenta}"
+        if getattr(captura, "atento", False):
+            return f"ATENTO: deslizá o cerrá el puño ({int(captura.segundos_atento + 0.99)} s)"
+        return f"Palma quieta 1 s para activar · se apaga en {cuenta}"
