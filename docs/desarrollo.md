@@ -53,3 +53,17 @@ Las acciones del tipo "Acción de la PC" están todas en `acciones_pc.py`, en la
 (clave, grupo, nombre, cómo se hace, qué dice, ¿pide confirmación?). Para sumar una de teclas o de
 "abrir" alcanza con una línea nueva; para algo más especial se agrega una función en `FUNCIONES` o `INFORMES`.
 `tests/test_acciones_pc.py` revisa que las teclas existan y que no se repitan claves.
+
+## Cámara (`camara.py`)
+
+La cámara se maneja desde el hilo de las ventanas (tkinter), no desde el de la voz. El camino de una orden de voz es:
+acción `camara_encender` → `Entorno.camara(True)` → `Motor.pedir_camara` → `App._pedido_de_camara` (solo avisa por
+`cola_ui`) → `App._encender_camara` → `ControlDeCamara.encender()`. Para apagarse sola, `App._camara_apagada` le pide al
+motor que lo diga con `Motor.avisar` (lo habla cuando está libre).
+
+- `Captura` (hilo) lee la cámara a 8 cuadros por segundo en 320x240 y deja el último cuadro como imagen PPM, que
+  tkinter muestra sin librerías extra. Detecta movimiento comparando cuadros en gris (`hay_movimiento`).
+- `ControlDeCamara.vigilar()` se llama cada 100 ms desde `App._bucle`: dibuja el cuadro y apaga si venció `Inactividad`.
+- Las pruebas (`tests/test_camara.py`) usan una ventana y una cámara de juguete: no hace falta cámara ni pantalla.
+- Falta (parte 2): gestos de mano (activación con la palma, deslizar, puño) y gestos distintos según la app activa.
+  Ahí "actividad" dejará de ser "movimiento" y pasará a ser "hizo un gesto".

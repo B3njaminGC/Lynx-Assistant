@@ -80,11 +80,24 @@ Vos elegís la acción y escribís la frase que querés decir. Todo funciona sin
 | Volumen y brillo | volumen al máximo/mitad/bajito, subir/bajar el brillo, brillo al máximo/mitad/mínimo |
 | Apariencia y limpieza | modo oscuro/claro, vaciar la papelera, reiniciar el Explorador |
 | Temporizador | de 5, 10, 15, 30 minutos o 1 hora; avisa cuando termina (sin cortarte si le estás dando una orden) |
+| Cámara | encender y apagar la cámara de la laptop (ver "Cámara" más abajo) |
 
 Las acciones que pueden hacerte perder trabajo (reiniciar, cerrar sesión, cerrar la ventana, vaciar la papelera)
 vienen con confirmación. Detalles: el brillo solo funciona en pantallas de notebook (no en monitores externos), y el
 volumen "al máximo/mitad" se logra bajando y subiendo con las teclas de volumen, porque Windows no deja fijarlo
 sin programas extra.
+
+### Cámara (en preparación)
+
+Con las acciones **Cámara · Encender la cámara** y **Cámara · Apagar la cámara** podés prender y apagar por voz una
+ventanita chica con tu imagen, siempre encima de lo demás. Es la base para controlar la PC con gestos de mano
+(todavía no están).
+
+- Usa solo la cámara que elijas (la de la laptop suele ser la 0; la ventanita tiene el botón "Otra cámara").
+- Está apagada hasta que la prendés, y se apaga sola si pasan 2 minutos sin movimiento frente a la cámara
+  (se cambia con `camara_apagar_min` en `config.json`). Al apagarse sola, Lynx lo avisa.
+- No graba ni guarda nada, y no sale nada de tu PC. La luz de la cámara queda prendida mientras se usa.
+- Necesita OpenCV: ejecutá `instalar_camara.bat` una vez.
 
 ### Comandos dentro de un juego
 

@@ -102,6 +102,8 @@ CONFIG_BASE = {
     "personaje": None,              # None = sin voz de personaje; o el nombre de la carpeta en "personajes"
     "personaje_tono": 0,            # semitonos: negativo = más grave (útil si la voz base es de mujer)
     "applio_dir": r"C:\Applio",    # dónde está instalado Applio (lo hace instalar_voz_personaje.bat)
+    "camara_indice": 0,             # qué cámara usar (la de la laptop suele ser la 0; la ventanita tiene un botón para cambiar)
+    "camara_apagar_min": 2,         # minutos sin movimiento frente a la cámara antes de que se apague sola
 }
 
 # Lo que dice el asistente al ejecutar un comando que no tiene respuesta propia.
@@ -147,7 +149,7 @@ FRASES_FIJAS = [  # la de prueba va primera: se convierte antes y se puede escuc
     FRASE_DE_PRUEBA, "Te escucho.", "Hasta luego.", "¿Confirmás?", "Cancelado.", "No entendí ese comando.",
     "No pude hacerlo. Revisá la ruta del comando.", "Todavía no sé hacer esa acción.",
     "No encuentro esa salida de audio.",
-    "Se terminó el tiempo.", "No pude hacerlo.",
+    "Se terminó el tiempo.", "No pude hacerlo.", "Cámara activada.", "Cámara apagada.",
 ]
 
 GESTOR = Personajes(BASE, log, SIN_VENTANA)  # voces de personaje: se comparte entre reinicios del motor
@@ -621,6 +623,8 @@ class Motor(threading.Thread):
         self.mudo = False                 # mientras ejecuta una orden remota no habla en voz alta
         self.ultima_respuesta = ""
         self.callback_config = None  # la aplicación se entera si un comando cambia la configuración
+        self.callback_camara = None  # la aplicación enciende/apaga la cámara: callback(True/False) -> texto si no pudo
+        self.cola_avisos = queue.Queue()  # cosas que Lynx dice solo (por ejemplo "Cámara apagada.") cuando está libre
         self.comandos = []
         self.reco_comandos = None
         self.cola_audio = queue.Queue()
@@ -987,7 +991,27 @@ class Motor(threading.Thread):
 
     def _entorno_acciones(self):
         return acciones_pc.Entorno(self.hablar, pulsar=teclas.pulsar, correr=lambda a: subprocess.run(
-            a, capture_output=True, creationflags=SIN_VENTANA), temporizador=self.poner_temporizador)
+            a, capture_output=True, creationflags=SIN_VENTANA), temporizador=self.poner_temporizador,
+            camara=self.pedir_camara)
+
+    def pedir_camara(self, encender):
+        """Lo pide un comando de voz; la cámara vive en la ventana principal, que contesta si no pudo."""
+        if self.callback_camara is None:
+            return "La cámara no está disponible."
+        return self.callback_camara(encender) or ""
+
+    def avisar(self, texto):
+        """Para que la aplicación le haga decir algo al motor (se dice cuando no está ocupado)."""
+        self.cola_avisos.put(texto)
+
+    def _decir_avisos(self):
+        if self.cola_avisos.empty() or self.despierto or self.mudo or self.pausado.is_set():
+            return
+        try:
+            while True:
+                self.hablar(self.cola_avisos.get_nowait())
+        except queue.Empty:
+            pass
 
     def poner_temporizador(self, minutos):
         """Con minutos = 0 cancela los que haya; si no, avisa cuando pase ese tiempo."""
@@ -1174,6 +1198,7 @@ class Motor(threading.Thread):
             self._preparar_comandos(modelo)
             self.preparar_personaje()  # agregaste o cambiaste un comando: prepara solo lo nuevo
         self._avisar_temporizadores()
+        self._decir_avisos()
         if self.prueba_voz is not None:
             self._hacer_prueba_de_voz()
         if self.prueba_personaje:

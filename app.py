@@ -21,6 +21,7 @@ from tkinter import messagebox
 
 import estilo
 import actualizar
+import camara
 import nucleo
 import remoto
 import respaldo
@@ -68,6 +69,7 @@ class App:
         estilo.aplicar_tema(self.raiz)
         self.raiz.report_callback_exception = self._error_de_tk
         self.circulo = Circulo(self.raiz, self.config, self._estado_visible, self._nivel)
+        self.camara = camara.ControlDeCamara(self.raiz, self.config, nucleo.guardar_config, self._camara_apagada)
 
         self.arrancar_motor()
         self.remoto = remoto.Remoto(self)  # control desde el celular (solo trabaja si lo activás)
@@ -85,7 +87,22 @@ class App:
     def arrancar_motor(self):
         self.motor = nucleo.Motor(self.config)
         self.motor.callback_config = self._config_cambiada
+        self.motor.callback_camara = self._pedido_de_camara
         self.motor.start()
+
+    # ------------------------------------------------------------ cámara
+
+    def _pedido_de_camara(self, encender):
+        """Lo llama el hilo de voz: la cámara se maneja desde el hilo de las ventanas, así que solo se le avisa."""
+        if encender and not camara.opencv_disponible():
+            return "Falta instalar OpenCV. Ejecutá instalar_camara.bat."
+        self.cola_ui.put("camara_on" if encender else "camara_off")
+        return ""
+
+    def _camara_apagada(self, motivo):
+        """La cámara se apagó sola (inactividad): lo dice. Si la apagaste vos con la voz, ya lo dijo el comando."""
+        if motivo == "inactividad" and self.motor is not None:
+            self.motor.avisar("Cámara apagada.")
 
     def _config_cambiada(self, clave, valor):
         """Un comando de voz cambió un ajuste (por ejemplo la salida de audio): se guarda."""
@@ -239,6 +256,10 @@ class App:
                 orden = self.cola_ui.get_nowait()
                 if orden == "configurar":
                     self.abrir_configuracion()
+                elif orden == "camara_on":
+                    self._encender_camara()
+                elif orden == "camara_off":
+                    self.camara.apagar("voz")
                 elif orden == "pausar":
                     self.alternar_pausa()
                 elif orden == "salir":
@@ -248,6 +269,12 @@ class App:
             pass
         except Exception:
             nucleo.log("[error en el bucle]\n" + traceback.format_exc())
+
+        try:
+            self.camara.vigilar()
+        except Exception:
+            nucleo.log("[error en la cámara]\n" + traceback.format_exc())
+            self.camara.apagar("error")
 
         motor = self.motor
         if motor is not None and motor.error and not self.error_mostrado:
@@ -260,6 +287,11 @@ class App:
                 parent=self.ventana)
         if not self.saliendo:
             self.raiz.after(100, self._bucle)
+
+    def _encender_camara(self):
+        falta = self.camara.encender()
+        if falta:
+            messagebox.showinfo("Lynx · Cámara", falta)
 
     def alternar_pausa(self):
         if self.motor is None:
@@ -276,6 +308,7 @@ class App:
             return
         self.saliendo = True
         nucleo.log("Cerrando el asistente.")
+        self.camara.apagar("salir")
         if self.motor is not None:
             self.motor.parar.set()
         self.remoto.parar.set()

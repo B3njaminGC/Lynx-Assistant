@@ -13,6 +13,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 - La lista de comandos permite **seleccionar varios** (Ctrl para sueltos, Shift para un rango) y borrarlos juntos.
 - Tipo **Ejecutar un comando o script** (`.bat`, `.ps1`, `.py` o cualquier comando).
 - Los temporizadores avisan en voz alta al terminar, sin interrumpir mientras Lynx espera una orden.
+- **Cámara** (primera parte): acciones "Encender/Apagar la cámara" con una ventanita que muestra tu imagen; se apaga
+  sola tras unos minutos sin movimiento y lo avisa. Solo usa la cámara elegida, no guarda imágenes. Necesita
+  `instalar_camara.bat` (OpenCV). Los gestos de mano vienen después.
 
 ## [1.5] — 2026-11-15
 ### Agregado

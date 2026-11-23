@@ -38,6 +38,7 @@ EDICION = "Edición y navegador"
 VOLUMEN = "Volumen y brillo"
 SISTEMA = "Apariencia y limpieza"
 TEMPORIZADOR = "Temporizador"
+CAMARA = "Cámara"
 
 CATALOGO = [
     # ------------------------------------------------------------------ energía
@@ -130,6 +131,10 @@ CATALOGO = [
        "Listo, te aviso en una hora."),
     _a("temporizador_cancelar", TEMPORIZADOR, "Cancelar los temporizadores", ("temporizador", 0),
        "Listo, cancelé los temporizadores."),
+
+    # ------------------------------------------------------------------ cámara (ver camara.py)
+    _a("camara_encender", CAMARA, "Encender la cámara", ("funcion", "camara_encender"), "Cámara activada."),
+    _a("camara_apagar", CAMARA, "Apagar la cámara", ("funcion", "camara_apagar"), "Cámara apagada."),
 ]
 
 POR_CLAVE = {a.clave: a for a in CATALOGO}
@@ -156,12 +161,13 @@ def respuesta_por_defecto(clave):
 class Entorno:
     """Todo lo que una acción necesita del exterior, junto en un lugar (así se puede probar con uno de juguete)."""
 
-    def __init__(self, hablar, pulsar=None, abrir=None, correr=None, temporizador=None):
+    def __init__(self, hablar, pulsar=None, abrir=None, correr=None, temporizador=None, camara=None):
         self.hablar = hablar
         self.pulsar = pulsar or _pulsar_real
         self.abrir = abrir or _abrir_real
         self.correr = correr or _correr_real
         self.temporizador = temporizador
+        self.camara = camara   # camara(True/False) enciende o apaga la cámara; devuelve un texto si no pudo
 
 
 def _pulsar_real(texto):
@@ -316,7 +322,16 @@ def modo_claro(entorno):
     _tema(True)
 
 
+def camara_encender(entorno):
+    return entorno.camara(True) or None   # si la cámara no pudo encender, dice por qué en vez de "Cámara activada"
+
+
+def camara_apagar(entorno):
+    entorno.camara(False)
+
+
 FUNCIONES = {
+    "camara_encender": camara_encender, "camara_apagar": camara_apagar,
     "suspender": suspender, "apagar_pantalla": apagar_pantalla,
     "volumen_maximo": volumen_maximo, "volumen_medio": volumen_medio, "volumen_bajo": volumen_bajo,
     "brillo_subir": brillo_subir, "brillo_bajar": brillo_bajar, "brillo_maximo": brillo_maximo,
