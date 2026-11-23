@@ -55,6 +55,9 @@ class VentanaFalsa:
     def poner_numero(self, n):
         self.indice = n
 
+    def mantener_visible(self):
+        self.revisiones = getattr(self, "revisiones", 0) + 1
+
     def cerrar(self):
         self.cerrada = True
 
@@ -349,3 +352,12 @@ def test_muestra_el_ultimo_gesto_entendido(monkeypatch):
     control.captura.eventos.put("deslizar_izq")
     control.vigilar()
     assert control.ventana.textos[-1].endswith("último: ←")
+
+
+def test_la_ventana_se_revisa_para_que_no_quede_escondida(monkeypatch):
+    con_opencv(monkeypatch)
+    control, *_ = armar()
+    control.encender()
+    control.vigilar()
+    control.vigilar()
+    assert control.ventana.revisiones == 2

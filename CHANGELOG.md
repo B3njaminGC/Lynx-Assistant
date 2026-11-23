@@ -21,6 +21,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   con pitidos de aviso. Se cambia en la clave `gestos` de `config.json`.
 - **Selector de aplicaciones por gestos**: deslizar hacia arriba abre la Vista de tareas de Windows; deslizar mueve la
   marca entre ventanas y el puño abre la marcada (como las apps recientes del celular).
+- La ventanita de la cámara no se queda escondida cuando un gesto minimiza todo. Al deslizar, la mano que vuelve a su lugar ya no cuenta como un gesto contrario, y salir por el borde de la imagen en el sentido del movimiento cuenta como deslizar.
 - Deslizar mide el movimiento según el tamaño de la mano: sirve un giro de muñeca o todo el brazo, de cerca o de lejos.
 
 ## [1.5] — 2026-11-15

@@ -116,7 +116,7 @@ chica con tu imagen, siempre encima de lo demás.
 
 "Derecha" es tu derecha. El ratón y el teclado siguen siendo tuyos: los gestos solo mandan las mismas teclas que
 apretarías vos, a la app que tengas adelante. Para cambiar qué hace un gesto, mirá `gestos.py` (clave `gestos` de `config.json`).
-Con poca luz la mano se reconoce peor. Si no instalaste MediaPipe, la cámara anda igual pero sin gestos.
+La ventanita de la cámara se vuelve a mostrar sola si un gesto minimiza todo (por ejemplo "mostrar el escritorio"), así siempre ves si te detecta. Para que la mano que vuelve a su lugar no cuente como otro gesto, el movimiento contrario justo después de un deslizar se ignora, y si subís el brazo y la mano sale de la imagen por arriba también cuenta. Con poca luz la mano se reconoce peor. Si no instalaste MediaPipe, la cámara anda igual pero sin gestos.
 
 ### Comandos dentro de un juego
 

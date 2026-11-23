@@ -340,3 +340,38 @@ def test_reiniciar_cierra_el_modo_selector():
     t.valor("deslizar_arriba", "")
     t.reiniciar()
     assert not t.selector_abierto
+
+
+# ---------------------------------------------------------------- la mano que vuelve, sale o entra
+
+def test_la_mano_que_vuelve_no_es_otro_gesto():
+    r = activado()
+    ida = [(1.3 + i * 0.1, mano(x=0.5 + 0.1 * (i + 1))) for i in range(3)]
+    assert [e for _, e in correr(r, ida)] == ["deslizar_der"]
+    vuelta = [(1.7 + i * 0.1, mano(x=0.85 - 0.1 * i)) for i in range(6)]   # vuelve para el otro lado, enseguida
+    assert correr(r, vuelta) == []
+    # mucho después, un deslizar a la izquierda sí vale
+    despues = [(4.0 + i * 0.1, mano(x=0.8 - 0.1 * i)) for i in range(5)]
+    assert [e for _, e in correr(r, despues)] == ["deslizar_izq"]
+
+
+def test_subir_el_brazo_y_salir_por_arriba_cuenta_como_deslizar_arriba():
+    r = activado()
+    # mano grande (cerca): el recorrido normal no llega, pero se va por el borde de arriba yendo hacia arriba
+    subida = [(1.3 + i * 0.1, mano(y=0.78 - 0.05 * i, tam=2.0)) for i in range(6)]
+    assert correr(r, subida) == []
+    assert [e for _, e in correr(r, [(1.9, None)])] == ["deslizar_arriba"]
+
+
+def test_perder_la_mano_en_el_medio_de_la_imagen_no_cuenta():
+    r = activado()
+    subida = [(1.3 + i * 0.1, mano(y=0.9 - 0.04 * i, tam=2.0)) for i in range(5)]
+    correr(r, subida)
+    assert correr(r, [(1.9, None)]) == []
+
+
+def test_una_mano_que_recien_entra_a_la_imagen_no_hace_gestos():
+    r = activado()
+    r.paso(None, 1.3)                                                # salió de la imagen
+    entra = [(1.5 + i * 0.1, mano(y=0.3 + 0.07 * i)) for i in range(5)]   # baja entrando por arriba
+    assert correr(r, entra) == []

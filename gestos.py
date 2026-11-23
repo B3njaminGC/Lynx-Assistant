@@ -135,13 +135,17 @@ class Reconocedor:
     """
 
     def __init__(self, segundos_para_activar=1.0, segundos_atento=6.0, factor_deslizar=1.0,
-                 minimo_deslizar=0.08, ventana_deslizar=0.8, quieta=0.10, segundos_puño=0.3, enfriamiento=0.8):
+                 minimo_deslizar=0.08, ventana_deslizar=0.8, quieta=0.10, segundos_puño=0.3, enfriamiento=0.8,
+                 segundos_rebote=1.2, espera_a_la_vista=0.5, margen_borde=0.25):
         self.segundos_para_activar = segundos_para_activar
         self.segundos_atento = segundos_atento
         # Cuánto hay que mover la mano: tantas veces su propio tamaño (así sirve un giro de muñeca de cerca
         # o un movimiento de todo el brazo de lejos), pero nunca menos que el mínimo.
         self.factor_deslizar = factor_deslizar
         self.minimo_deslizar = minimo_deslizar
+        self.segundos_rebote = segundos_rebote      # al deslizar, el gesto contrario enseguida es la mano volviendo
+        self.espera_a_la_vista = espera_a_la_vista  # una mano que recién entra a la imagen no cuenta todavía
+        self.margen_borde = margen_borde            # una mano que se va por un borde mientras se mueve, ya deslizó
         self.ventana_deslizar = ventana_deslizar
         self.quieta = quieta
         self.segundos_puño = segundos_puño
@@ -157,6 +161,8 @@ class Reconocedor:
         self._puño_dado = False
         self._atento_hasta = 0.0
         self._ultimo_gesto = -1e9
+        self._a_la_vista_desde = None
+        self._rebote_de = ("", 0.0)   # (gesto que no vale por ahora, hasta cuándo)
 
     def segundos_atento_restantes(self, ahora):
         return max(0.0, self._atento_hasta - ahora) if self.armado else 0.0
@@ -169,10 +175,17 @@ class Reconocedor:
             eventos.append("desactivado")
         clase = clasificar_mano(puntos)
         if clase is None:   # no se ve la mano
+            if self.armado:
+                gesto = self._salio_por_un_borde(ahora)
+                if gesto:
+                    self._dar(gesto, ahora, eventos)
             self._palma_desde = None
+            self._a_la_vista_desde = None
             self._historial.clear()
             self._puño_desde, self._puño_dado = None, False
             return eventos
+        if self._a_la_vista_desde is None:
+            self._a_la_vista_desde = ahora
         if not self.armado:
             self._esperar_activacion(clase, centro_de_mano(puntos), ahora, eventos)
         else:
@@ -186,7 +199,9 @@ class Reconocedor:
         if self._palma_desde is None or _distancia(centro, self._ancla) > self.quieta:
             self._palma_desde, self._ancla = ahora, centro   # recién llegó o se movió: vuelve a contar
         elif ahora - self._palma_desde >= self.segundos_para_activar:
+            a_la_vista = self._a_la_vista_desde   # la mano ya estaba ahí: no hay que esperar de nuevo
             self._reiniciar_todo()
+            self._a_la_vista_desde = a_la_vista
             self.armado = True
             self._atento_hasta = ahora + self.segundos_atento
             eventos.append("activado")
@@ -198,7 +213,7 @@ class Reconocedor:
             self._historial.append((ahora, centro[0], centro[1], tamaño))
             while self._historial and ahora - self._historial[0][0] > self.ventana_deslizar:
                 self._historial.popleft()
-            gesto = self._deslizo() if libre else None
+            gesto = self._deslizo(ahora) if libre and self._ya_se_ve_un_rato(ahora) else None
             if gesto:
                 self._historial.clear()
                 self._dar(gesto, ahora, eventos)
@@ -213,10 +228,10 @@ class Reconocedor:
         else:
             self._puño_desde, self._puño_dado = None, False
 
-    def _deslizo(self):
-        """Se movió de costado (o de arriba a abajo) lo suficiente en poco tiempo, y casi derecho."""
-        if len(self._historial) < 3:
-            return None
+    def _ya_se_ve_un_rato(self, ahora):
+        return self._a_la_vista_desde is not None and ahora - self._a_la_vista_desde >= self.espera_a_la_vista
+
+    def _medidas(self):
         xs = [x for _, x, _, _ in self._historial]
         ys = [y for _, _, y, _ in self._historial]
         tamaños = [t for _, _, _, t in self._historial]
@@ -224,14 +239,50 @@ class Reconocedor:
         x, y = xs[-1], ys[-1]
         derecha, izquierda = x - min(xs), max(xs) - x
         abajo, arriba = y - min(ys), max(ys) - y   # en la imagen "abajo" es y más grande
+        return xs, ys, umbral, (derecha, izquierda, abajo, arriba)
+
+    def _direccion(self, xs, ys, minimo, movimientos):
+        """El gesto de un recorrido si es bastante largo (`minimo`) y casi derecho, o None."""
+        derecha, izquierda, abajo, arriba = movimientos
         horizontal, vertical = max(derecha, izquierda), max(abajo, arriba)
-        if horizontal >= umbral and horizontal >= vertical and (max(ys) - min(ys)) <= 0.8 * horizontal:
+        if horizontal >= minimo and horizontal >= vertical and (max(ys) - min(ys)) <= 0.8 * horizontal:
             return "deslizar_der" if derecha >= izquierda else "deslizar_izq"
-        if vertical >= umbral and vertical > horizontal and (max(xs) - min(xs)) <= 0.8 * vertical:
+        if vertical >= minimo and vertical > horizontal and (max(xs) - min(xs)) <= 0.8 * vertical:
             return "deslizar_abajo" if abajo >= arriba else "deslizar_arriba"
         return None
 
+    def _deslizo(self, ahora):
+        """Se movió de costado (o de arriba a abajo) lo suficiente en poco tiempo, y casi derecho."""
+        if len(self._historial) < 3:
+            return None
+        xs, ys, umbral, movimientos = self._medidas()
+        return self._sin_rebote(self._direccion(xs, ys, umbral, movimientos), ahora)
+
+    def _salio_por_un_borde(self, ahora):
+        """La mano se fue de la imagen por un borde yendo para ese lado (por ejemplo, subiste el brazo y salió por
+        arriba): el gesto ya estaba hecho, aunque la cámara no llegue a ver el final."""
+        if len(self._historial) < 3 or ahora - self._historial[-1][0] > 0.5:
+            return None
+        if ahora - self._ultimo_gesto < self.enfriamiento or not self._ya_se_ve_un_rato(self._historial[-1][0]):
+            return None
+        xs, ys, umbral, movimientos = self._medidas()
+        gesto = self._direccion(xs, ys, umbral * 0.6, movimientos)
+        x, y = xs[-1], ys[-1]
+        cerca_del_borde = {"deslizar_arriba": y < self.margen_borde, "deslizar_abajo": y > 1 - self.margen_borde,
+                           "deslizar_izq": x < self.margen_borde, "deslizar_der": x > 1 - self.margen_borde}
+        return self._sin_rebote(gesto, ahora) if gesto and cerca_del_borde[gesto] else None
+
+    def _sin_rebote(self, gesto, ahora):
+        """Después de deslizar, la mano vuelve: ese movimiento contrario enseguida no es un gesto nuevo."""
+        if gesto and gesto == self._rebote_de[0] and ahora < self._rebote_de[1]:
+            return None
+        return gesto
+
     def _dar(self, gesto, ahora, eventos):
+        contrario = {"deslizar_der": "deslizar_izq", "deslizar_izq": "deslizar_der",
+                     "deslizar_arriba": "deslizar_abajo", "deslizar_abajo": "deslizar_arriba"}.get(gesto)
+        if contrario:
+            self._rebote_de = (contrario, ahora + self.segundos_rebote)
         self._ultimo_gesto = ahora
         self._atento_hasta = ahora + self.segundos_atento   # cada gesto lo mantiene atento un rato más
         eventos.append(gesto)

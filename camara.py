@@ -238,6 +238,17 @@ class VentanaCamara:
     def texto(self, texto):
         self.aviso.configure(text=texto)
 
+    def mantener_visible(self):
+        """"Mostrar el escritorio" minimiza todo, la cámara incluida: la vuelve a mostrar enseguida, así
+        siempre podés ver si te detecta."""
+        try:
+            if self.ventana.state() == "iconic":
+                self.ventana.deiconify()
+                self.ventana.attributes("-topmost", True)
+                self.ventana.lift()
+        except Exception:
+            pass
+
     def poner_numero(self, indice):
         self.boton.configure(text=f"Otra cámara ({indice})")
 
@@ -368,6 +379,9 @@ class ControlDeCamara:
                 self.ventana.mostrar(captura.imagen)
         if self.ventana is not None:
             self.ventana.texto(self._texto_de_estado(captura))
+            mantener = getattr(self.ventana, "mantener_visible", None)
+            if mantener is not None:
+                mantener()
 
     def _atender_gestos(self, captura):
         eventos = getattr(captura, "eventos", None)
