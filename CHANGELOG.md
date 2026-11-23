@@ -19,6 +19,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 - **Gestos de mano** (con `instalar_gestos.bat`, MediaPipe): palma quieta 1 s para activar; deslizar a los costados
   y puño. Lo que hacen depende de la app que tengas adelante (navegador, reproductor, PowerPoint o escritorio),
   con pitidos de aviso. Se cambia en la clave `gestos` de `config.json`.
+- **Selector de aplicaciones por gestos**: deslizar hacia arriba abre la Vista de tareas de Windows; deslizar mueve la
+  marca entre ventanas y el puño abre la marcada (como las apps recientes del celular).
+- Deslizar mide el movimiento según el tamaño de la mano: sirve un giro de muñeca o todo el brazo, de cerca o de lejos.
 
 ## [1.5] — 2026-11-15
 ### Agregado

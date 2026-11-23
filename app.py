@@ -72,6 +72,7 @@ class App:
         estilo.aplicar_tema(self.raiz)
         self.raiz.report_callback_exception = self._error_de_tk
         self.circulo = Circulo(self.raiz, self.config, self._estado_visible, self._nivel)
+        self.traductor = gestos.Traductor()   # sabe si está abierto el selector de aplicaciones
         self.camara = camara.ControlDeCamara(self.raiz, self.config, nucleo.guardar_config, self._camara_apagada,
                                               al_gesto=self._gesto)
 
@@ -111,14 +112,14 @@ class App:
         try:
             if gesto in ("activado", "desactivado"):
                 self._pitido(1300 if gesto == "activado" else 600, 120)   # agudo = atento, grave = se durmió
-                return
             motor = self.motor
             if motor is None:
                 return
             exe = gestos.ventana_activa_exe()
-            valor = gestos.valor_de_gesto(gesto, exe, self.config)
-            nucleo.log(f"[gesto] {gesto} con {exe or 'el escritorio'}: {valor or 'nada'}")
-            self._pitido(900, 50)
+            valor = self.traductor.valor(gesto, exe, self.config)
+            if gesto not in ("activado", "desactivado"):
+                nucleo.log(f"[gesto] {gesto} con {exe or 'el escritorio'}: {valor or 'nada'}")
+                self._pitido(900, 50)
             entorno = motor._entorno_acciones()
             gestos.ejecutar_valor(valor, lambda clave: acciones_pc.ejecutar(clave, entorno, ""),
                                   acciones_pc.POR_CLAVE, teclas.pulsar, motor._tecla_multimedia)
@@ -136,6 +137,7 @@ class App:
 
     def _camara_apagada(self, motivo):
         """La cámara se apagó sola (inactividad): lo dice. Si la apagaste vos con la voz, ya lo dijo el comando."""
+        self.traductor.reiniciar()
         if motivo == "inactividad" and self.motor is not None:
             self.motor.avisar("Cámara apagada.")
 

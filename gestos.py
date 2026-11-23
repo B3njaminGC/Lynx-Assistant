@@ -3,9 +3,11 @@ Gestos de mano para Lynx (se usan con la cámara encendida, ver camara.py).
 
 Cómo se usa:
   1. Mostrás la palma abierta, quieta, durante 1 segundo: Lynx queda "atento" unos segundos.
-  2. Mientras está atento: deslizás la mano abierta a la izquierda o a la derecha, o cerrás el puño.
+  2. Mientras está atento: deslizás la mano abierta (izquierda, derecha, arriba o abajo), o cerrás el puño.
   3. Lo que hace cada gesto depende de la aplicación que tengas adelante (navegador, reproductor, PowerPoint...).
      Si esa app no tiene el gesto, se usa el del escritorio.
+  4. Deslizar hacia arriba abre el selector de aplicaciones (Vista de tareas de Windows, como las apps recientes
+     del celular) en cualquier app: ahí deslizás para elegir y cerrás el puño para abrir la que marcaste.
 
 Todo lo importante de acá es lógica pura (se prueba sin cámara ni Windows). Lo único que toca el exterior es
 DetectorDeManos (MediaPipe, que encuentra los 21 puntos de la mano) y ventana_activa_exe (Windows).
@@ -24,11 +26,13 @@ from collections import deque
 
 # ------------------------------------------------------------------ qué hace cada gesto por defecto
 
-GESTOS = ("deslizar_der", "deslizar_izq", "puño")
+GESTOS = ("deslizar_der", "deslizar_izq", "deslizar_arriba", "deslizar_abajo", "puño")
 
+# "selector:abrir" abre el selector de aplicaciones (como las apps recientes del celular): ver Traductor.
 PERFIL_GENERAL = {
     "deslizar_der": "cambiar_ventana",
     "deslizar_izq": "teclas:alt+shift+tab",
+    "deslizar_arriba": "selector:abrir",
     "puño": "mostrar_escritorio",
 }
 
@@ -113,6 +117,11 @@ def centro_de_mano(puntos):
     return puntos[CENTRO]
 
 
+def tamaño_de_mano(puntos):
+    """Largo de la palma (de la muñeca a la base del dedo medio): sirve de regla para medir cuánto se movió."""
+    return _distancia(puntos[MUNECA], puntos[CENTRO])
+
+
 # ------------------------------------------------------------------ cuándo es un gesto
 
 class Reconocedor:
@@ -125,11 +134,14 @@ class Reconocedor:
     "Derecha" es la derecha tuya (la imagen de la cámara va en espejo).
     """
 
-    def __init__(self, segundos_para_activar=1.0, segundos_atento=6.0, distancia_deslizar=0.18,
-                 ventana_deslizar=0.8, quieta=0.10, segundos_puño=0.3, enfriamiento=0.8):
+    def __init__(self, segundos_para_activar=1.0, segundos_atento=6.0, factor_deslizar=1.0,
+                 minimo_deslizar=0.08, ventana_deslizar=0.8, quieta=0.10, segundos_puño=0.3, enfriamiento=0.8):
         self.segundos_para_activar = segundos_para_activar
         self.segundos_atento = segundos_atento
-        self.distancia_deslizar = distancia_deslizar
+        # Cuánto hay que mover la mano: tantas veces su propio tamaño (así sirve un giro de muñeca de cerca
+        # o un movimiento de todo el brazo de lejos), pero nunca menos que el mínimo.
+        self.factor_deslizar = factor_deslizar
+        self.minimo_deslizar = minimo_deslizar
         self.ventana_deslizar = ventana_deslizar
         self.quieta = quieta
         self.segundos_puño = segundos_puño
@@ -164,7 +176,7 @@ class Reconocedor:
         if not self.armado:
             self._esperar_activacion(clase, centro_de_mano(puntos), ahora, eventos)
         else:
-            self._buscar_gesto(clase, centro_de_mano(puntos), ahora, eventos)
+            self._buscar_gesto(clase, centro_de_mano(puntos), ahora, eventos, tamaño_de_mano(puntos))
         return eventos
 
     def _esperar_activacion(self, clase, centro, ahora, eventos):
@@ -179,11 +191,11 @@ class Reconocedor:
             self._atento_hasta = ahora + self.segundos_atento
             eventos.append("activado")
 
-    def _buscar_gesto(self, clase, centro, ahora, eventos):
+    def _buscar_gesto(self, clase, centro, ahora, eventos, tamaño):
         libre = ahora - self._ultimo_gesto >= self.enfriamiento
         if clase != "puño":
             # Al deslizar rápido la mano se ve borrosa y a veces no se reconoce como palma perfecta: cuenta igual
-            self._historial.append((ahora, centro[0], centro[1]))
+            self._historial.append((ahora, centro[0], centro[1], tamaño))
             while self._historial and ahora - self._historial[0][0] > self.ventana_deslizar:
                 self._historial.popleft()
             gesto = self._deslizo() if libre else None
@@ -202,22 +214,69 @@ class Reconocedor:
             self._puño_desde, self._puño_dado = None, False
 
     def _deslizo(self):
-        """Se movió de costado lo suficiente en poco tiempo, y bastante más de costado que hacia arriba o abajo."""
+        """Se movió de costado (o de arriba a abajo) lo suficiente en poco tiempo, y casi derecho."""
         if len(self._historial) < 3:
             return None
-        xs = [x for _, x, _ in self._historial]
-        ys = [y for _, _, y in self._historial]
-        actual = xs[-1]
-        hacia_derecha, hacia_izquierda = actual - min(xs), max(xs) - actual
-        recorrido = max(hacia_derecha, hacia_izquierda)
-        if recorrido < self.distancia_deslizar or (max(ys) - min(ys)) > 0.8 * recorrido:
-            return None
-        return "deslizar_der" if hacia_derecha >= hacia_izquierda else "deslizar_izq"
+        xs = [x for _, x, _, _ in self._historial]
+        ys = [y for _, _, y, _ in self._historial]
+        tamaños = [t for _, _, _, t in self._historial]
+        umbral = max(self.minimo_deslizar, self.factor_deslizar * sum(tamaños) / len(tamaños))
+        x, y = xs[-1], ys[-1]
+        derecha, izquierda = x - min(xs), max(xs) - x
+        abajo, arriba = y - min(ys), max(ys) - y   # en la imagen "abajo" es y más grande
+        horizontal, vertical = max(derecha, izquierda), max(abajo, arriba)
+        if horizontal >= umbral and horizontal >= vertical and (max(ys) - min(ys)) <= 0.8 * horizontal:
+            return "deslizar_der" if derecha >= izquierda else "deslizar_izq"
+        if vertical >= umbral and vertical > horizontal and (max(xs) - min(xs)) <= 0.8 * vertical:
+            return "deslizar_abajo" if abajo >= arriba else "deslizar_arriba"
+        return None
 
     def _dar(self, gesto, ahora, eventos):
         self._ultimo_gesto = ahora
         self._atento_hasta = ahora + self.segundos_atento   # cada gesto lo mantiene atento un rato más
         eventos.append(gesto)
+
+
+# ------------------------------------------------------------------ el selector de aplicaciones
+
+class Traductor:
+    """
+    Decide qué hacer con cada gesto. Casi siempre es lo que dice el perfil de la app (valor_de_gesto), salvo
+    cuando está abierto el selector de aplicaciones, que funciona como las apps recientes del celular:
+      deslizar hacia arriba   abre la Vista de tareas de Windows (todas las ventanas abiertas)
+      deslizar en cualquier sentido    mueve la marca de una ventana a otra
+      puño                    abre la ventana marcada
+      pasar el tiempo sin tocar nada   cierra el selector (Esc)
+    """
+
+    def __init__(self):
+        self.selector_abierto = False
+
+    def valor(self, gesto, exe, config=None):
+        """Lo que hay que hacer (como texto de valor_de_gesto), o '' si nada."""
+        if self.selector_abierto:
+            return self._en_el_selector(gesto)
+        valor = valor_de_gesto(gesto, exe, config)
+        if valor == "selector:abrir":
+            self.selector_abierto = True
+            return "teclas:win+tab"
+        return valor
+
+    def _en_el_selector(self, gesto):
+        movimientos = {"deslizar_der": "derecha", "deslizar_izq": "izquierda",
+                       "deslizar_arriba": "arriba", "deslizar_abajo": "abajo"}
+        if gesto in movimientos:
+            return "teclas:" + movimientos[gesto]
+        if gesto == "puño":
+            self.selector_abierto = False
+            return "teclas:enter"
+        if gesto == "desactivado":    # se cansó de esperar: lo cierra para no dejarte la pantalla tapada
+            self.selector_abierto = False
+            return "teclas:esc"
+        return ""
+
+    def reiniciar(self):
+        self.selector_abierto = False
 
 
 # ------------------------------------------------------------------ lo que toca el exterior

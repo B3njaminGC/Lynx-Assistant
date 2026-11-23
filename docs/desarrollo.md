@@ -76,6 +76,9 @@ motor que lo diga con `Motor.avisar` (lo habla cuando está libre).
 - `valor_de_gesto(gesto, exe, config)` elige qué hacer: tu config, el perfil de la app (`PERFILES_POR_APP`) o el del
   escritorio. Los valores son claves de `acciones_pc`, `teclas:...` o `media:...`. Para sumar una app, una línea en
   `PERFILES_POR_APP` (el nombre del `.exe` en minúsculas).
+- `Traductor` (estado: selector abierto o no) decide el valor de cada gesto: normalmente el del perfil, pero con el
+  selector de aplicaciones abierto (`selector:abrir` → Win+Tab) los deslizamientos pasan a ser flechas, el puño Enter y
+  el aviso "desactivado" Esc. `deslizar` usa la distancia relativa al tamaño de la palma (`tamaño_de_mano`).
 - `App._hacer_gesto` ejecuta el gesto en un hilo aparte con la app que esté adelante (`ventana_activa_exe`).
 - Falta: una pantalla en la configuración para editar los gestos por app (hoy se hace en `config.json`),
   y el dedo como mouse (pellizco para hacer clic).

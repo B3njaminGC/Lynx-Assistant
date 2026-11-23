@@ -101,7 +101,7 @@ chica con tu imagen, siempre encima de lo demás.
 **Gestos** (ejecutá `instalar_gestos.bat` una vez; instala MediaPipe, unos 100 MB. La primera vez que prendas la cámara, Lynx baja un modelo de 7 MB: hace falta internet solo esa vez):
 
 1. Mostrá la **palma abierta, quieta, 1 segundo**. Suena un pitido agudo y el marco de la ventanita se pone azul: Lynx está atento unos segundos.
-2. Con la mano abierta, **deslizá a la izquierda o a la derecha**, o **cerrá el puño**. Cada gesto suena con un pitido corto, y la ventanita muestra el último que entendió.
+2. Con la mano abierta, **deslizá** (izquierda, derecha, arriba o abajo), o **cerrá el puño**. Alcanza con girar la muñeca o con mover todo el brazo: Lynx mide el movimiento según el tamaño de tu mano. Cada gesto suena con un pitido corto, y la ventanita muestra el último que entendió.
    Si no hacés nada, se duerme solo (pitido grave) y hay que volver a mostrar la palma.
 3. Lo que hace cada gesto depende de la aplicación que tengas adelante:
 
@@ -111,6 +111,8 @@ chica con tu imagen, siempre encima de lo demás.
 | Navegador (Chrome, Edge, Brave, Firefox...) | pestaña siguiente | pestaña anterior | pausa / play |
 | Reproductor (Spotify, VLC...) | canción siguiente | canción anterior | pausa / play |
 | PowerPoint o PDF | diapositiva siguiente | diapositiva anterior | salir (Esc) |
+
+**Selector de aplicaciones (como las apps recientes del celular):** en cualquier app, deslizá **hacia arriba**: se abre la Vista de tareas de Windows con todas tus ventanas abiertas. Ahí deslizá hacia donde está la que querés (los gestos mueven la marca) y **cerrá el puño** para abrirla. Si no hacés nada unos segundos, se cierra solo.
 
 "Derecha" es tu derecha. El ratón y el teclado siguen siendo tuyos: los gestos solo mandan las mismas teclas que
 apretarías vos, a la app que tengas adelante. Para cambiar qué hace un gesto, mirá `gestos.py` (clave `gestos` de `config.json`).

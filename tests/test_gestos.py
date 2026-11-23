@@ -3,15 +3,16 @@
 import gestos
 
 
-def mano(estirados=(True, True, True, True), x=0.5, y=0.6):
-    """21 puntos de una mano con la muñeca abajo y los dedos hacia arriba. `estirados` = índice, medio, anular, meñique."""
+def mano(estirados=(True, True, True, True), x=0.5, y=0.6, tam=1.0):
+    """21 puntos de una mano con la muñeca abajo y los dedos hacia arriba. `estirados` = índice, medio, anular, meñique.
+    `tam` achica o agranda la mano (una mano lejos de la cámara se ve más chica)."""
     p = [(x, y)] * 21
     p = list(p)
     p[gestos.MUNECA] = (x, y)
-    p[9] = (x, y - 0.15)    # base del dedo medio (el centro de la palma)
+    p[9] = (x, y - 0.15 * tam)    # base del dedo medio (el centro de la palma)
     for (articulacion, punta), abierto in zip(gestos.DEDOS, estirados):
-        p[articulacion] = (x, y - 0.25)
-        p[punta] = (x, y - 0.38) if abierto else (x, y - 0.12)   # cerrado: la punta vuelve hacia la palma
+        p[articulacion] = (x, y - 0.25 * tam)
+        p[punta] = (x, y - 0.38 * tam) if abierto else (x, y - 0.12 * tam)   # cerrado: la punta vuelve hacia la palma
     return p
 
 
@@ -163,8 +164,10 @@ def test_todos_los_valores_por_defecto_existen():
     import teclas
     perfiles = [gestos.PERFIL_GENERAL, *gestos.PERFILES_POR_APP.values()]
     for perfil in perfiles:
-        assert set(perfil) == set(gestos.GESTOS)
+        assert set(perfil) <= set(gestos.GESTOS)
         for valor in perfil.values():
+            if valor == "selector:abrir":
+                continue
             if valor.startswith("teclas:"):
                 teclas.analizar(valor[len("teclas:"):])
             elif valor.startswith("media:"):
@@ -275,5 +278,65 @@ def test_deslizar_cuenta_aunque_la_mano_salga_borrosa():
 
 def test_un_deslizar_lento_no_cuenta():
     r = activado()
-    lento = [(1.3 + i * 0.25, mano(x=0.5 + 0.05 * i)) for i in range(10)]   # 0.45 de recorrido en 2 s
+    lento = [(1.3 + i * 0.25, mano(x=0.5 + 0.03 * i)) for i in range(10)]   # 0.27 de recorrido en 2 s
     assert correr(r, lento) == []
+
+
+def test_un_giro_de_muñeca_de_cerca_o_una_mano_lejana_tambien_cuentan():
+    r = activado()
+    # mano chica (lejos): el recorrido necesario se achica con ella
+    lejos = [(1.3 + i * 0.1, mano(x=0.5 + 0.03 * (i + 1), tam=0.4)) for i in range(6)]
+    assert [e for _, e in correr(r, lejos)] == ["deslizar_der"]
+    r2 = activado()
+    # la misma distancia con una mano grande (cerca) no alcanza: se mueve poco comparado con su tamaño
+    cerca = [(1.3 + i * 0.1, mano(x=0.5 + 0.03 * (i + 1), tam=1.6)) for i in range(6)]
+    assert correr(r2, cerca) == []
+
+
+def test_deslizar_hacia_arriba_y_hacia_abajo():
+    r = activado()
+    arriba = [(1.3 + i * 0.1, mano(y=0.7 - 0.07 * (i + 1))) for i in range(5)]
+    assert [e for _, e in correr(r, arriba)] == ["deslizar_arriba"]
+    abajo = [(3.0 + i * 0.1, mano(y=0.3 + 0.07 * i)) for i in range(5)]
+    assert [e for _, e in correr(r, abajo)] == ["deslizar_abajo"]
+
+
+def test_un_movimiento_en_diagonal_no_es_ni_vertical_ni_horizontal():
+    r = activado()
+    diagonal = [(1.3 + i * 0.1, mano(x=0.5 + 0.08 * (i + 1), y=0.6 + 0.08 * (i + 1))) for i in range(5)]
+    assert correr(r, diagonal) == []
+
+
+# ---------------------------------------------------------------- el selector de aplicaciones
+
+def test_selector_de_apps_como_las_recientes_del_celular():
+    t = gestos.Traductor()
+    assert t.valor("deslizar_arriba", "chrome.exe") == "teclas:win+tab"      # sirve en cualquier app
+    assert t.selector_abierto
+    assert t.valor("deslizar_der", "chrome.exe") == "teclas:derecha"         # ya no cambia de pestaña
+    assert t.valor("deslizar_izq", "chrome.exe") == "teclas:izquierda"
+    assert t.valor("deslizar_abajo", "chrome.exe") == "teclas:abajo"
+    assert t.valor("puño", "chrome.exe") == "teclas:enter"                   # abre la marcada
+    assert not t.selector_abierto
+    assert t.valor("deslizar_der", "chrome.exe") == "pestana_siguiente"      # todo vuelve a la normalidad
+
+
+def test_selector_se_cierra_solo_si_no_se_toca_nada():
+    t = gestos.Traductor()
+    t.valor("deslizar_arriba", "")
+    assert t.valor("desactivado", "") == "teclas:esc" and not t.selector_abierto
+    assert t.valor("desactivado", "") == ""    # sin selector abierto, no aprieta nada
+
+
+def test_se_puede_cambiar_el_gesto_que_abre_el_selector():
+    t = gestos.Traductor()
+    config = {"gestos": {"general": {"deslizar_arriba": "mostrar_escritorio"}}}
+    assert t.valor("deslizar_arriba", "bloc.exe", config) == "mostrar_escritorio"
+    assert not t.selector_abierto
+
+
+def test_reiniciar_cierra_el_modo_selector():
+    t = gestos.Traductor()
+    t.valor("deslizar_arriba", "")
+    t.reiniciar()
+    assert not t.selector_abierto
