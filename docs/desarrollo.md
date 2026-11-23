@@ -68,7 +68,7 @@ motor que lo diga con `Motor.avisar` (lo habla cuando está libre).
 
 ### Gestos (`gestos.py`)
 
-- `DetectorDeManos` (MediaPipe) devuelve los 21 puntos de la mano; es lo único de los gestos que no se prueba sin cámara.
+- `DetectorDeManos` (MediaPipe) devuelve los 21 puntos de la mano. Usa la interfaz nueva (`mp.tasks.vision.HandLandmarker`, con el modelo `hand_landmarker.task` que baja `asegurar_modelo` junto al programa) y, si la versión de MediaPipe es vieja, `mp.solutions.hands`. Las versiones recientes de MediaPipe ya no traen `solutions`. Es lo único de los gestos que no se prueba con una mano real: los tests usan un MediaPipe de juguete.
   `Captura` lo crea dentro de su hilo y, si MediaPipe no está, la cámara sigue sin gestos.
 - `clasificar_mano` mira cuántos dedos están estirados (palma / puño / otro) y `Reconocedor.paso(puntos, ahora)`
   es una máquina de estados: palma quieta 1 s → "activado" → deslizar o puño → "desactivado" por tiempo. Todo recibe el

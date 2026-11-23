@@ -193,3 +193,70 @@ def test_sin_mediapipe_no_rompe_y_dice_por_que(monkeypatch):
     assert gestos.mediapipe_disponible() is False
     assert gestos.detector_por_defecto() is None
     assert "mediapipe" in gestos.MOTIVO_FALLA.lower() or "import" in gestos.MOTIVO_FALLA.lower()
+
+
+# ---------------------------------------------------------------- el modelo de manos y MediaPipe (con uno de juguete)
+
+def test_asegurar_modelo_baja_una_sola_vez(tmp_path):
+    ruta = str(tmp_path / "modelo.task")
+    llamadas = []
+
+    def bajar(url, destino):
+        llamadas.append(url)
+        with open(destino, "wb") as f:
+            f.write(b"x" * 2_000_000)
+    assert gestos.asegurar_modelo(ruta, bajar) == ruta
+    assert gestos.asegurar_modelo(ruta, bajar) == ruta
+    assert llamadas == [gestos.URL_MODELO]
+    assert not (tmp_path / "modelo.task.descarga").exists()
+
+
+def test_asegurar_modelo_si_falla_dice_que_hacer(tmp_path):
+    import pytest
+    ruta = str(tmp_path / "modelo.task")
+
+    def bajar(url, destino):
+        raise OSError("sin internet")
+    with pytest.raises(OSError) as error:
+        gestos.asegurar_modelo(ruta, bajar)
+    assert "sin internet" in str(error.value) and gestos.URL_MODELO in str(error.value)
+    assert not (tmp_path / "modelo.task").exists()
+
+
+def test_detector_con_la_interfaz_nueva_de_mediapipe(monkeypatch, tmp_path):
+    import sys
+    import types
+    import numpy as np
+    vistos = []
+
+    class Punto:
+        def __init__(self, x, y):
+            self.x, self.y = x, y
+
+    class Marcador:
+        def detect_for_video(self, imagen, ms):
+            vistos.append(ms)
+            hay = len(vistos) != 3     # en la tercera llamada no se ve ninguna mano
+            return types.SimpleNamespace(hand_landmarks=[[Punto(i / 21, 0.5) for i in range(21)]] if hay else [])
+
+        def close(self):
+            vistos.append("cerrado")
+
+    vision = types.SimpleNamespace(
+        HandLandmarkerOptions=lambda **kw: kw, RunningMode=types.SimpleNamespace(VIDEO="video"),
+        HandLandmarker=types.SimpleNamespace(create_from_options=lambda opciones: Marcador()))
+    falso = types.SimpleNamespace(
+        tasks=types.SimpleNamespace(vision=vision, BaseOptions=lambda **kw: kw),
+        Image=lambda image_format, data: data, ImageFormat=types.SimpleNamespace(SRGB=1))
+    monkeypatch.setitem(sys.modules, "mediapipe", falso)
+    modelo = tmp_path / "m.task"
+    modelo.write_bytes(b"x" * 2_000_000)
+    d = gestos.DetectorDeManos(str(modelo))
+    rgb = np.zeros((240, 320, 3), dtype=np.uint8)
+    puntos = d.buscar(rgb)
+    assert len(puntos) == 21 and puntos[0] == (0.0, 0.5)
+    d.buscar(rgb)
+    assert d.buscar(rgb) is None
+    assert vistos[0] < vistos[1] < vistos[2]       # las marcas de tiempo siempre crecen
+    d.cerrar()
+    assert vistos[-1] == "cerrado"

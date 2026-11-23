@@ -24,7 +24,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-%PY% -c "import mediapipe as mp; mp.solutions.hands.Hands().close(); print('MediaPipe funciona.')"
+%PY% -c "import mediapipe as mp; mp.tasks.vision.HandLandmarker; print('MediaPipe funciona.')"
 if errorlevel 1 (
   echo.
   echo MediaPipe se instalo pero no arranca. Sacale una captura a esta ventana y mandamela.
@@ -33,5 +33,6 @@ if errorlevel 1 (
 )
 
 echo.
+echo La primera vez que prendas la camara, Lynx baja un archivo de 7 MB con el modelo de manos (hace falta internet solo esa vez).
 echo Listo. Cerra Lynx y abrilo de nuevo. Con la camara encendida, mostra la palma abierta quieta un segundo.
 pause

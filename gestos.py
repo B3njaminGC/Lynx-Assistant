@@ -19,6 +19,7 @@ Cada valor es una acción del catálogo (acciones_pc.py), "teclas:ctrl+tab" o "m
 import math
 import os
 import sys
+import time
 from collections import deque
 
 # ------------------------------------------------------------------ qué hace cada gesto por defecto
@@ -218,21 +219,53 @@ class Reconocedor:
 
 MOTIVO_FALLA = ""   # por qué no hay gestos (para mostrarlo en la ventanita y anotarlo en el registro)
 
+# El modelo que reconoce manos (7 MB, oficial de Google). Se baja una sola vez y queda junto al programa.
+NOMBRE_MODELO = "hand_landmarker.task"
+URL_MODELO = ("https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/"
+              "float16/1/hand_landmarker.task")
 
-def _modulo_de_manos():
-    """El módulo de manos de MediaPipe; según la versión está en un lugar o en otro."""
-    import mediapipe as mp
+
+def ruta_del_modelo():
     try:
-        return mp.solutions.hands
-    except AttributeError:
-        from mediapipe.python.solutions import hands
-        return hands
+        import nucleo
+        carpeta = nucleo.BASE
+    except Exception:
+        carpeta = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(carpeta, NOMBRE_MODELO)
+
+
+def _descargar(url, destino):
+    import urllib.request
+    with urllib.request.urlopen(url, timeout=60) as respuesta, open(destino, "wb") as archivo:
+        archivo.write(respuesta.read())
+
+
+def asegurar_modelo(ruta, descargar=_descargar):
+    """Si el modelo de manos no está, lo baja (se hace una sola vez). Devuelve la ruta."""
+    if os.path.exists(ruta) and os.path.getsize(ruta) > 1_000_000:
+        return ruta
+    temporal = ruta + ".descarga"
+    try:
+        descargar(URL_MODELO, temporal)
+        if os.path.getsize(temporal) < 1_000_000:
+            raise OSError("la descarga llegó incompleta")
+        os.replace(temporal, ruta)
+    except Exception as error:
+        try:
+            os.remove(temporal)
+        except OSError:
+            pass
+        raise OSError(f"no pude bajar el modelo de manos ({error}); descargalo de {URL_MODELO} "
+                      f"y ponelo en {os.path.dirname(ruta)}") from error
+    return ruta
 
 
 def mediapipe_disponible():
     global MOTIVO_FALLA
     try:
-        _modulo_de_manos()
+        import mediapipe as mp
+        if not (hasattr(mp, "tasks") or hasattr(mp, "solutions")):
+            raise ImportError("esta versión de mediapipe no trae el reconocedor de manos")
         return True
     except Exception as error:
         MOTIVO_FALLA = f"{type(error).__name__}: {error}"
@@ -240,14 +273,38 @@ def mediapipe_disponible():
 
 
 class DetectorDeManos:
-    """Encuentra los 21 puntos de una mano en una imagen RGB (MediaPipe, todo en tu PC, sin internet)."""
+    """Encuentra los 21 puntos de una mano en una imagen RGB (MediaPipe, todo en tu PC, sin internet).
+    Usa la interfaz nueva de MediaPipe (con el modelo hand_landmarker.task) y, si la versión es vieja, la anterior."""
 
-    def __init__(self):
-        self._manos = _modulo_de_manos().Hands(
-            static_image_mode=False, max_num_hands=1, model_complexity=0,
-            min_detection_confidence=0.6, min_tracking_confidence=0.5)
+    def __init__(self, ruta_modelo=None):
+        import mediapipe as mp
+        self._mp = mp
+        self._tareas = self._manos = None
+        self._t0 = time.monotonic()
+        self._ultimo_ms = -1
+        if hasattr(mp, "tasks"):
+            ruta = asegurar_modelo(ruta_modelo or ruta_del_modelo())
+            vision = mp.tasks.vision
+            opciones = vision.HandLandmarkerOptions(
+                base_options=mp.tasks.BaseOptions(model_asset_path=ruta),
+                running_mode=vision.RunningMode.VIDEO, num_hands=1,
+                min_hand_detection_confidence=0.6, min_hand_presence_confidence=0.5,
+                min_tracking_confidence=0.5)
+            self._tareas = vision.HandLandmarker.create_from_options(opciones)
+        else:
+            self._manos = mp.solutions.hands.Hands(
+                static_image_mode=False, max_num_hands=1, model_complexity=0,
+                min_detection_confidence=0.6, min_tracking_confidence=0.5)
 
     def buscar(self, rgb):
+        if self._tareas is not None:
+            import numpy as np
+            imagen = self._mp.Image(image_format=self._mp.ImageFormat.SRGB, data=np.ascontiguousarray(rgb))
+            ms = max(int((time.monotonic() - self._t0) * 1000), self._ultimo_ms + 1)   # tiene que ir creciendo
+            self._ultimo_ms = ms
+            resultado = self._tareas.detect_for_video(imagen, ms)
+            manos = resultado.hand_landmarks
+            return [(p.x, p.y) for p in manos[0]] if manos else None
         resultado = self._manos.process(rgb)
         if not resultado.multi_hand_landmarks:
             return None
@@ -255,7 +312,7 @@ class DetectorDeManos:
 
     def cerrar(self):
         try:
-            self._manos.close()
+            (self._tareas or self._manos).close()
         except Exception:
             pass
 
