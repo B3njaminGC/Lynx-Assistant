@@ -257,7 +257,7 @@ def test_detector_con_la_interfaz_nueva_de_mediapipe(monkeypatch, tmp_path):
     d = gestos.DetectorDeManos(str(modelo))
     rgb = np.zeros((240, 320, 3), dtype=np.uint8)
     puntos = d.buscar(rgb)
-    assert len(puntos) == 21 and puntos[0] == (0.0, 0.5)
+    assert len(puntos) == 21 and puntos[0] == (0.0, 0.5, 0.0)
     d.buscar(rgb)
     assert d.buscar(rgb) is None
     assert vistos[0] < vistos[1] < vistos[2]       # las marcas de tiempo siempre crecen
@@ -375,3 +375,44 @@ def test_una_mano_que_recien_entra_a_la_imagen_no_hace_gestos():
     r.paso(None, 1.3)                                                # salió de la imagen
     entra = [(1.5 + i * 0.1, mano(y=0.3 + 0.07 * i)) for i in range(5)]   # baja entrando por arriba
     assert correr(r, entra) == []
+
+
+# ---------------------------------------------------------------- manos de verdad: de frente, en movimiento
+
+def test_una_mano_abierta_con_los_dedos_hacia_la_camara_no_es_un_puño():
+    # los dedos apuntan a la cámara: en la imagen las puntas casi no se alejan de la muñeca, pero la profundidad (z) sí
+    p = mano()
+    for articulacion, punta in gestos.DEDOS:
+        p[articulacion] = (p[articulacion][0], p[gestos.MUNECA][1] - 0.10, -0.12)
+        p[punta] = (p[punta][0], p[gestos.MUNECA][1] - 0.11, -0.28)
+    assert gestos.clasificar_mano(p) == "palma"
+
+
+def test_dedos_a_medio_doblar_no_son_puño_ni_palma():
+    p = mano()
+    for articulacion, punta in gestos.DEDOS:
+        p[punta] = (p[punta][0], p[gestos.MUNECA][1] - 0.25)   # la punta a la misma distancia que la articulación
+    assert gestos.clasificar_mano(p) == "otro"
+
+
+def test_un_puno_mientras_la_mano_se_mueve_no_dispara():
+    r = activado()
+    en_movimiento = [(1.3 + i * 0.1, mano((False,) * 4, x=0.3 + 0.05 * i)) for i in range(12)]
+    assert [e for _, e in correr(r, en_movimiento) if e == "puño"] == []
+
+
+def test_un_cuadro_que_parece_puño_no_corta_un_deslizar():
+    r = activado()
+    pasos = []
+    for i in range(5):
+        puntos = mano(x=0.5 + 0.1 * (i + 1))
+        if i == 1:
+            puntos = mano((False,) * 4, x=0.5 + 0.1 * (i + 1))   # un cuadro borroso que parece puño
+        pasos.append((1.3 + i * 0.1, puntos))
+    assert [e for _, e in correr(r, pasos)] == ["deslizar_der"]
+
+
+def test_con_poca_velocidad_de_camara_alcanzan_dos_cuadros_si_el_movimiento_es_grande():
+    r = activado()
+    pasos = [(1.3, mano(x=0.5)), (1.65, mano(x=0.5 + 0.30))]   # cámara lenta: solo dos cuadros
+    assert [e for _, e in correr(r, pasos)] == ["deslizar_der"]

@@ -28,6 +28,8 @@ class CapturaFalsa:
         self.con_gestos = True
         self.atento = False
         self.segundos_atento = 0.0
+        self.clase_mano = "palma"
+        self.fps = 11.6
         self.eventos = queue.Queue()
         self.lista = threading.Event()
         self.error = ""
@@ -54,6 +56,9 @@ class VentanaFalsa:
 
     def poner_numero(self, n):
         self.indice = n
+
+    def detalle(self, texto):
+        self.detalles = getattr(self, "detalles", []) + [texto]
 
     def mantener_visible(self):
         self.revisiones = getattr(self, "revisiones", 0) + 1
@@ -361,3 +366,14 @@ def test_la_ventana_se_revisa_para_que_no_quede_escondida(monkeypatch):
     control.vigilar()
     control.vigilar()
     assert control.ventana.revisiones == 2
+
+
+def test_la_ventana_muestra_lo_que_ve_la_camara(monkeypatch):
+    con_opencv(monkeypatch)
+    control, *_ = armar()
+    control.encender()
+    control.vigilar()
+    assert control.ventana.detalles[-1] == "mano: palma · 12 cuadros/s"
+    control.captura.clase_mano = ""
+    control.vigilar()
+    assert control.ventana.detalles[-1].startswith("mano: no veo la mano")

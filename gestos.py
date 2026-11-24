@@ -94,21 +94,37 @@ def _distancia(a, b):
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
+def _distancia_3d(a, b):
+    """Distancia entre dos puntos de la mano contando la profundidad (z) y la forma de la imagen (más ancha que alta).
+    Así una mano con los dedos apuntando a la cámara no parece un puño."""
+    dz = (a[2] - b[2]) if len(a) > 2 and len(b) > 2 else 0.0
+    return math.sqrt((a[0] - b[0]) ** 2 + ((a[1] - b[1]) * 0.75) ** 2 + dz ** 2)
+
+
+def _proporcion(puntos, articulacion, punta):
+    """Qué tan lejos de la muñeca está la punta del dedo, comparada con su articulación: más de 1 = dedo estirado."""
+    lejos = _distancia_3d(puntos[articulacion], puntos[MUNECA])
+    return _distancia_3d(puntos[punta], puntos[MUNECA]) / lejos if lejos > 0 else 1.0
+
+
 def dedos_estirados(puntos):
-    """Cuántos de los 4 dedos largos están estirados (la punta más lejos de la muñeca que la articulación)."""
-    muneca = puntos[MUNECA]
-    return sum(1 for articulacion, punta in DEDOS
-               if _distancia(puntos[punta], muneca) > _distancia(puntos[articulacion], muneca) * 1.08)
+    """Cuántos de los 4 dedos largos están claramente estirados."""
+    return sum(1 for articulacion, punta in DEDOS if _proporcion(puntos, articulacion, punta) > 1.08)
+
+
+def dedos_cerrados(puntos):
+    """Cuántos de los 4 dedos largos están claramente doblados hacia la palma."""
+    return sum(1 for articulacion, punta in DEDOS if _proporcion(puntos, articulacion, punta) < 0.95)
 
 
 def clasificar_mano(puntos):
-    """'palma' (4 dedos estirados), 'puño' (ninguno) u 'otro'. `puntos` = 21 pares (x, y) entre 0 y 1."""
+    """'palma' (4 dedos estirados), 'puño' (4 doblados) u 'otro' (todo lo intermedio, que no cuenta como ninguno).
+    `puntos` = 21 tuplas (x, y) o (x, y, z)."""
     if not puntos or len(puntos) < 21:
         return None
-    estirados = dedos_estirados(puntos)
-    if estirados == 4:
+    if dedos_estirados(puntos) == 4:
         return "palma"
-    if estirados == 0:
+    if dedos_cerrados(puntos) == 4:
         return "puño"
     return "otro"
 
@@ -135,7 +151,7 @@ class Reconocedor:
     """
 
     def __init__(self, segundos_para_activar=1.0, segundos_atento=6.0, factor_deslizar=1.0,
-                 minimo_deslizar=0.08, ventana_deslizar=0.8, quieta=0.10, segundos_puño=0.3, enfriamiento=0.8,
+                 minimo_deslizar=0.08, ventana_deslizar=0.8, quieta=0.10, segundos_puño=0.45, enfriamiento=0.8,
                  segundos_rebote=1.2, espera_a_la_vista=0.5, margen_borde=0.25):
         self.segundos_para_activar = segundos_para_activar
         self.segundos_atento = segundos_atento
@@ -159,6 +175,7 @@ class Reconocedor:
         self._historial = deque()
         self._puño_desde = None
         self._puño_dado = False
+        self._recientes = deque()   # dónde estuvo la mano hace un momento (para saber si está quieta)
         self._atento_hasta = 0.0
         self._ultimo_gesto = -1e9
         self._a_la_vista_desde = None
@@ -208,6 +225,9 @@ class Reconocedor:
 
     def _buscar_gesto(self, clase, centro, ahora, eventos, tamaño):
         libre = ahora - self._ultimo_gesto >= self.enfriamiento
+        self._recientes.append((ahora, centro[0], centro[1]))
+        while self._recientes and ahora - self._recientes[0][0] > self.segundos_puño + 0.1:
+            self._recientes.popleft()
         if clase != "puño":
             # Al deslizar rápido la mano se ve borrosa y a veces no se reconoce como palma perfecta: cuenta igual
             self._historial.append((ahora, centro[0], centro[1], tamaño))
@@ -217,16 +237,22 @@ class Reconocedor:
             if gesto:
                 self._historial.clear()
                 self._dar(gesto, ahora, eventos)
-        else:
-            self._historial.clear()
+        # (un cuadro que parece puño en medio de un deslizar no corta el deslizar: se lo saltea)
         if clase == "puño":
             if self._puño_desde is None:
                 self._puño_desde = ahora
-            elif not self._puño_dado and libre and ahora - self._puño_desde >= self.segundos_puño:
+            elif (not self._puño_dado and libre and ahora - self._puño_desde >= self.segundos_puño
+                  and self._esta_quieta()):
                 self._puño_dado = True
                 self._dar("puño", ahora, eventos)
         else:
             self._puño_desde, self._puño_dado = None, False
+
+    def _esta_quieta(self):
+        """El puño es a propósito: la mano no se está moviendo (si se mueve, es otra cosa)."""
+        xs = [x for _, x, _ in self._recientes]
+        ys = [y for _, _, y in self._recientes]
+        return (max(xs) - min(xs)) < 0.08 and (max(ys) - min(ys)) < 0.08
 
     def _ya_se_ve_un_rato(self, ahora):
         return self._a_la_vista_desde is not None and ahora - self._a_la_vista_desde >= self.espera_a_la_vista
@@ -253,9 +279,11 @@ class Reconocedor:
 
     def _deslizo(self, ahora):
         """Se movió de costado (o de arriba a abajo) lo suficiente en poco tiempo, y casi derecho."""
-        if len(self._historial) < 3:
+        if len(self._historial) < 2:
             return None
         xs, ys, umbral, movimientos = self._medidas()
+        if len(self._historial) < 3:   # con solo dos cuadros (cámara lenta) hace falta un movimiento más grande
+            umbral *= 1.6
         return self._sin_rebote(self._direccion(xs, ys, umbral, movimientos), ahora)
 
     def _salio_por_un_borde(self, ahora):
@@ -419,11 +447,11 @@ class DetectorDeManos:
             self._ultimo_ms = ms
             resultado = self._tareas.detect_for_video(imagen, ms)
             manos = resultado.hand_landmarks
-            return [(p.x, p.y) for p in manos[0]] if manos else None
+            return [(p.x, p.y, getattr(p, "z", 0.0)) for p in manos[0]] if manos else None
         resultado = self._manos.process(rgb)
         if not resultado.multi_hand_landmarks:
             return None
-        return [(p.x, p.y) for p in resultado.multi_hand_landmarks[0].landmark]
+        return [(p.x, p.y, getattr(p, "z", 0.0)) for p in resultado.multi_hand_landmarks[0].landmark]
 
     def cerrar(self):
         try:

@@ -118,6 +118,8 @@ class Captura(threading.Thread):
         self.motivo_sin_gestos = ""      # si no, por qué (texto técnico, para que se pueda arreglar)
         self.atento = False              # los gestos están activados (mostraste la palma)
         self.segundos_atento = 0.0
+        self.clase_mano = ""             # lo que ve ahora: palma, puño, otro o "" si no hay mano (para el panel de la ventana)
+        self.fps = 0.0                   # cuántos cuadros por segundo está procesando de verdad
         self.eventos = queue.Queue()     # gestos detectados, para que la aplicación los atienda
         self.error = ""
         self.lista = threading.Event()   # ya abrió (o falló): la ventana puede mostrar algo
@@ -176,13 +178,16 @@ class Captura(threading.Thread):
                 puntos = detector.buscar(rgb)
                 for gesto in reconocedor.paso(puntos, time.monotonic()):
                     self.eventos.put(gesto)
+                self.clase_mano = gestos.clasificar_mano(puntos) or ""
                 self.atento = reconocedor.armado
                 self.segundos_atento = reconocedor.segundos_atento_restantes(time.monotonic())
             self.actividad = (puntos is not None) if detector is not None else self.movimiento
             self._dibujar(cv2, rgb, puntos)
             self.imagen = a_imagen_ppm(rgb.tobytes(), ANCHO, ALTO)
             self.lista.set()
-            resto = espera - (time.monotonic() - empezo)
+            duracion = time.monotonic() - empezo
+            self.fps = 0.9 * self.fps + 0.1 / max(duracion, espera) if self.fps else 1 / max(duracion, espera)
+            resto = espera - duracion
             if resto > 0:
                 time.sleep(resto)
 
@@ -192,8 +197,8 @@ class Captura(threading.Thread):
             cv2.rectangle(rgb, (2, 2), (ANCHO - 3, ALTO - 3), (70, 140, 255), 4)
         elif self.actividad:
             cv2.rectangle(rgb, (2, 2), (ANCHO - 3, ALTO - 3), (80, 220, 80), 3)
-        for x, y in puntos or ():
-            cv2.circle(rgb, (int(x * ANCHO), int(y * ALTO)), 3, (255, 255, 255), -1)
+        for punto in puntos or ():
+            cv2.circle(rgb, (int(punto[0] * ANCHO), int(punto[1] * ALTO)), 3, (255, 255, 255), -1)
 
 
 # ---------------------------------------------------------------- la ventanita
@@ -213,6 +218,8 @@ class VentanaCamara:
         self.cuadro = tk.Label(self.ventana, bg="black", width=ANCHO, height=ALTO,
                                text="Abriendo la cámara…", fg="white", compound="center")
         self.cuadro.pack()
+        self.linea_detalle = tk.Label(self.ventana, text="", anchor="w", font=("Consolas", 8), fg="#666666")
+        self.linea_detalle.pack(fill="x", padx=6)
         pie = tk.Frame(self.ventana)
         pie.pack(fill="x")
         self.aviso = tk.Label(pie, text="", anchor="w", font=("Segoe UI", 9))
@@ -237,6 +244,9 @@ class VentanaCamara:
 
     def texto(self, texto):
         self.aviso.configure(text=texto)
+
+    def detalle(self, texto):
+        self.linea_detalle.configure(text=texto)
 
     def mantener_visible(self):
         """"Mostrar el escritorio" minimiza todo, la cámara incluida: la vuelve a mostrar enseguida, así
@@ -379,6 +389,10 @@ class ControlDeCamara:
                 self.ventana.mostrar(captura.imagen)
         if self.ventana is not None:
             self.ventana.texto(self._texto_de_estado(captura))
+            detalle = getattr(self.ventana, "detalle", None)
+            if detalle is not None and getattr(captura, "con_gestos", False):
+                mano = captura.clase_mano or "no veo la mano"
+                detalle(f"mano: {mano} · {captura.fps:.0f} cuadros/s")
             mantener = getattr(self.ventana, "mantener_visible", None)
             if mantener is not None:
                 mantener()
